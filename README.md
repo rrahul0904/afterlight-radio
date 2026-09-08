@@ -1,22 +1,28 @@
-# Afterlight Radio
+# Afterlight
 
-An original 12-room place-based listening experience built for Cloudflare Workers + Static Assets.
+**Somewhere else, for a while.**
 
-## What is implemented
+Afterlight is a premium consumer listening product: twelve illustrated places with original music and ambience for working, reading, unwinding and sleep.
 
-- 12 atmospheric listening rooms with clean URLs
-- 3 distinct original music loops per room
-- Native `HTMLAudioElement` playback with `playsinline` for iPhone/Safari
-- Audible WAV rendering with melody, bass, pad, kick and brushed percussion
-- Play/pause, previous/next track, mute and volume controls
-- Room browser, keyboard navigation and browser history
-- Local persistence for room/track/volume/mute state
-- Responsive desktop/mobile UI
-- Cloudflare Workers Static Assets deployment config
-- Deterministic `public/` route build
-- GitHub Actions CI on every push
+## Architecture
 
-## Run locally
+- Cloudflare Workers + Static Assets
+- 12 clean room routes
+- 36 build-generated original WAV tracks (3 per room)
+- Supabase passwordless authentication and cross-device preferences
+- Stripe Checkout subscriptions + Customer Portal
+- Webhook-driven premium entitlements
+- First-party product analytics and client-error capture
+- Privacy, Terms and Support surfaces
+- GitHub Actions release checks
+
+## Product model
+
+Free: Rooftop, Window Seat and Pizzeria Roma.
+
+Afterlight+: $2.99/month or $19.99 founding annual. Premium entitlement is never trusted from browser state; it comes from the server-side subscription record synchronized by verified Stripe webhooks.
+
+## Local
 
 ```bash
 npm install
@@ -24,22 +30,13 @@ npm test
 npm run serve
 ```
 
-Open `http://localhost:4173/rooftop/`.
+The listening experience works without backend secrets. Accounts and billing report as unavailable until the production environment is configured.
 
 ## Cloudflare
 
-The project is configured for Cloudflare Workers + Static Assets.
+```bash
+npm run cf:dev
+npm run cf:deploy
+```
 
-- Build command: `npm run build`
-- Deploy command: `npx wrangler deploy`
-- Production branch: `main`
-- Worker name: `afterlight-radio`
-- Output directory: `public/`
-
-Cloudflare Workers Builds can connect directly to this GitHub repository.
-
-## Audio implementation
-
-Audio is rendered locally into PCM WAV blobs and assigned to a native browser `Audio` element before playback. This removes the nearly-silent Web Audio gain bug from the earlier prototype and keeps playback behind a direct user Play gesture for mobile Safari.
-
-The loops are original project-generated audio; no third-party copyrighted recordings are bundled. The player can later be switched to licensed catalog/stream URLs without replacing the room UX.
+See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) and [docs/MVP_STATUS.md](docs/MVP_STATUS.md).
