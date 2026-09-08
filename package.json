@@ -17,6 +17,6 @@
     "@neondatabase/serverless": "1.1.0"
   },
   "devDependencies": {
-    "wrangler": "4.34.0"
+    "wrangler": "4.129.1"
   }
 }
