@@ -19,6 +19,7 @@ for(const page of ['privacy','terms','support']){
   await writeFile(path.join(dir,'index.html'),await readFile(path.join(root,'legal',page+'.html'),'utf8'));
 }
 
+const accountDir=path.join(out,'account');await mkdir(accountDir,{recursive:true});await writeFile(path.join(accountDir,'index.html'),await readFile(path.join(root,'account.html'),'utf8'));
 await writeFile(path.join(out,'404.html'),html);
 await writeFile(path.join(out,'_headers'),`/*
   X-Frame-Options: DENY
@@ -32,4 +33,4 @@ await writeFile(path.join(out,'_headers'),`/*
 
 const count=await generateAudio(out);
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
-console.log(`Built ${slugs.length} room routes, 3 legal pages and ${count} audio files (sample ${sample.size} bytes)`);
+console.log(`Built ${slugs.length} room routes, account portal, 3 legal pages and ${count} audio files (sample ${sample.size} bytes)`);
