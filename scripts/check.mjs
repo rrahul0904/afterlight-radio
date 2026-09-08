@@ -41,7 +41,7 @@ const productChecks = [
   ["$19.99",'Founding annual pricing'],
   ["id=\"home\"",'Editorial discovery home'],
   ["navigator.share",'Native share path'],
-  ["favs:new Set",'Persistent favorites state'],
+  ["favs=new Set",'Persistent favorites state'],
   ["timerEnd",'Persistent listening timer state']
 ];
 for (const [needle,label] of productChecks) {
