@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Your Afterlight</title>
+<meta name="description" content="Manage your Afterlight account, subscription, saved places and listening preferences.">
+<style>
+:root{--paper:#eee6d8;--ink:#201c17;--muted:#756b5f;--line:#cbc0af;--card:#f7f1e7}
+*{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{margin:0}
+a{color:inherit}.shell{min-height:100vh;display:grid;grid-template-rows:auto 1fr auto}
+nav{display:flex;align-items:center;justify-content:space-between;padding:24px 28px;border-bottom:1px solid rgba(32,28,23,.14);position:sticky;top:0;background:rgba(238,230,216,.92);backdrop-filter:blur(16px);z-index:2}
+.brand{text-decoration:none;font-size:11px;letter-spacing:.2em;text-transform:uppercase}.navlinks{display:flex;gap:18px;align-items:center}.navlinks a,.navlinks button{font:inherit;font-size:11px;border:0;background:none;padding:0;cursor:pointer;text-decoration:none}
+main{width:min(1100px,calc(100% - 40px));margin:0 auto;padding:70px 0 110px}.eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+h1{font:400 clamp(48px,9vw,92px)/.92 Georgia,serif;letter-spacing:-.055em;margin:12px 0 20px;max-width:800px}.lede{font-size:17px;line-height:1.65;color:#5e554b;max-width:620px}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:54px}.card{background:var(--card);border:1px solid rgba(32,28,23,.12);padding:26px;min-height:220px}
+.card h2{font:400 28px/1.05 Georgia,serif;margin:4px 0 18px}.label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}.value{font:400 20px/1.2 Georgia,serif;margin-top:8px}
+.row{display:flex;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid rgba(32,28,23,.1)}.row:first-of-type{border-top:0}.row .right{text-align:right;color:#5e554b}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.primary,.secondary{appearance:none;border:1px solid var(--ink);padding:12px 16px;cursor:pointer;font:inherit;font-size:12px}.primary{background:var(--ink);color:#f6efe5}.secondary{background:transparent;color:var(--ink)}
+.rooms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}.room{display:block;text-decoration:none;border:1px solid rgba(32,28,23,.12);padding:14px;background:#f2ebdf}.room strong{display:block;font:400 16px/1.2 Georgia,serif}.room span{font-size:10px;color:var(--muted)}
+.pref{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}.bar{height:6px;background:#d8cec0;position:relative}.bar b{position:absolute;inset:0 auto 0 0;background:var(--ink)}
+.auth{max-width:500px;margin-top:48px;background:var(--card);border:1px solid rgba(32,28,23,.12);padding:28px}.auth form{display:grid;gap:10px;margin-top:20px}.auth input{width:100%;border:1px solid var(--line);background:#fbf7f0;color:var(--ink);padding:13px 14px;font:inherit}.status{min-height:20px;color:#6f6559;font-size:12px}
+footer{padding:24px 28px;border-top:1px solid rgba(32,28,23,.14);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:20px}
+[hidden]{display:none!important}
+@media(max-width:800px){nav{padding:20px}.grid{grid-template-columns:1fr}.rooms{grid-template-columns:1fr 1fr}main{width:min(100% - 28px,1100px);padding-top:48px}.navlinks a:nth-child(1){display:none}footer{padding:20px;flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav><a class="brand" href="/">Afterlight</a><div class="navlinks"><a href="/">Listen</a><a href="/support/">Support</a><button id="signOutTop" hidden>Sign out</button></div></nav>
+<main>
+<section id="signedOut">
+  <div class="eyebrow">Your Afterlight</div>
+  <h1>A quieter place to keep everything together.</h1>
+  <p class="lede">Sign in to see your subscription, saved rooms and listening preferences.</p>
+  <div class="auth">
+    <div class="label">Account access</div>
+    <form id="loginForm">
+      <input id="email" type="email" autocomplete="email" required placeholder="Email">
+      <input id="password" type="password" autocomplete="current-password" minlength="8" required placeholder="Password">
+      <button class="primary" type="submit">Sign in</button>
+    </form>
+    <p id="loginStatus" class="status" aria-live="polite"></p>
+    <p style="font-size:12px;color:#6f6559">New here? <a href="/">Create your account from the main Afterlight site.</a></p>
+  </div>
+</section>
+
+<section id="signedIn" hidden>
+  <div class="eyebrow">Account portal</div>
+  <h1 id="hello">Your Afterlight.</h1>
+  <p class="lede">Subscription, saved places and listening preferences in one place.</p>
+  <div class="grid">
+    <section class="card">
+      <div class="label">Membership</div>
+      <h2 id="planTitle">Free collection</h2>
+      <div class="row"><span>Status</span><span id="planStatus" class="right">Free</span></div>
+      <div class="row"><span>Billing cycle</span><span id="billingCycle" class="right">—</span></div>
+      <div class="row"><span>Renews / access through</span><span id="periodEnd" class="right">—</span></div>
+      <div class="row"><span>Cancellation</span><span id="cancelState" class="right">Not scheduled</span></div>
+      <div class="actions">
+        <button id="manageBilling" class="primary">Manage billing</button>
+        <a class="secondary" href="/#upgrade">Compare plans</a>
+      </div>
+      <p id="billingNote" class="status"></p>
+    </section>
+
+    <section class="card">
+      <div class="label">Account</div>
+      <h2 id="accountName">Listener</h2>
+      <div class="row"><span>Email</span><span id="accountEmail" class="right"></span></div>
+      <div class="row"><span>Account ID</span><span id="accountId" class="right" style="font-family:ui-monospace,monospace;font-size:10px"></span></div>
+      <div class="actions"><button id="signOut" class="secondary">Sign out</button><a class="secondary" href="/support/">Support</a></div>
+    </section>
+
+    <section class="card">
+      <div class="label">Saved places</div>
+      <h2>Your rooms</h2>
+      <div id="rooms" class="rooms"></div>
+      <p id="emptyRooms" class="status">No saved places yet.</p>
+    </section>
+
+    <section class="card">
+      <div class="label">Listening preferences</div>
+      <h2>How you left things</h2>
+      <div class="row"><span>Last room</span><span id="lastRoom" class="right">—</span></div>
+      <div class="row"><span>Last track</span><span id="lastTrack" class="right">—</span></div>
+      <div class="row"><span>Muted</span><span id="muted" class="right">—</span></div>
+      <div class="row"><span>Volume</span><span class="right" style="min-width:150px"><span id="volumeText"></span><span class="bar"><b id="volumeBar"></b></span></span></div>
+      <div class="actions"><a id="resume" class="primary" href="/rooftop/">Resume listening</a></div>
+    </section>
+  </div>
+</section>
+</main>
+<footer><span>Afterlight account portal</span><span><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <a href="/support/">Support</a></span></footer>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const ROOM_NAMES={rooftop:'Rooftop',window:'Window Seat',roma:'Pizzeria Roma','long-way-home':'The Long Way Home','two-hundred':'Two Hundred to Go','one-more-log':'Just One More Log',friends:'A Few Good Friends',backroom:'Backroom Stage',headspace:'Headspace','last-bus':'Last Bus',momentum:'A Little Momentum',between:'Somewhere Between'};
+let config=null,me=null;
+async function request(path,options={}){const h=new Headers(options.headers||{});h.set('Accept','application/json');if(options.body&&!h.has('Content-Type'))h.set('Content-Type','application/json');const r=await fetch(path,{...options,headers:h,credentials:'same-origin'});let data=null;try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error||data?.message||'Request failed');return data}
+function date(v){if(!v)return '—';try{return new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(new Date(v))}catch{return '—'}}
+function render(){
+  const signed=!!me?.user;$('signedOut').hidden=signed;$('signedIn').hidden=!signed;$('signOutTop').hidden=!signed;if(!signed)return;
+  const sub=me.subscription||{},pref=me.preferences||{},premium=!!me.premium;
+  $('hello').textContent=(me.user.name?me.user.name+', this is':'Your')+' Afterlight.';
+  $('accountName').textContent=me.user.name||'Listener';$('accountEmail').textContent=me.user.email||'';$('accountId').textContent=me.user.id||'';
+  $('planTitle').textContent=premium?'Afterlight+':'Free collection';$('planStatus').textContent=sub.status||'Free';
+  $('billingCycle').textContent=sub.plan==='annual'?'Annual':sub.plan==='monthly'?'Monthly':'—';$('periodEnd').textContent=date(sub.current_period_end);
+  $('cancelState').textContent=sub.cancel_at_period_end?'Cancels at period end':'Not scheduled';
+  $('manageBilling').disabled=!sub.stripe_customer_id;$('billingNote').textContent=sub.stripe_customer_id?'Billing opens securely in Stripe.':'No billing account exists yet.';
+  const favs=Array.isArray(pref.favorites)?pref.favorites:[];$('rooms').innerHTML='';
+  for(const slug of favs){const a=document.createElement('a');a.className='room';a.href='/'+slug+'/';a.innerHTML='<strong>'+ (ROOM_NAMES[slug]||slug) +'</strong><span>Open room →</span>';$('rooms').appendChild(a)}
+  $('emptyRooms').hidden=favs.length>0;$('lastRoom').textContent=ROOM_NAMES[pref.last_room]||pref.last_room||'—';$('lastTrack').textContent=Number.isInteger(pref.last_track)?String(pref.last_track+1):'—';$('muted').textContent=pref.muted?'Yes':'No';
+  const vol=Number.isFinite(pref.volume)?pref.volume:72;$('volumeText').textContent=vol+'%';$('volumeBar').style.width=vol+'%';$('resume').href='/'+(pref.last_room||'rooftop')+'/';
+}
+async function load(){try{config=await request('/api/config');me=await request('/api/me');render()}catch{me=null;render()}}
+async function login(e){e.preventDefault();$('loginStatus').textContent='Signing you in…';try{await request('/api/auth/sign-in/email',{method:'POST',body:JSON.stringify({email:$('email').value.trim(),password:$('password').value,rememberMe:true})});await load();if(!me?.user)throw new Error('Session could not be verified') }catch(err){$('loginStatus').textContent=err.message}}
+async function logout(){try{await request('/api/auth/sign-out',{method:'POST',body:'{}'})}catch{}me=null;render()}
+async function billing(){if(!me?.subscription?.stripe_customer_id)return;try{const x=await request('/api/portal',{method:'POST',body:'{}'});if(x.url)location.assign(x.url)}catch(err){$('billingNote').textContent=err.message}}
+$('loginForm').onsubmit=login;$('manageBilling').onclick=billing;$('signOut').onclick=$('signOutTop').onclick=logout;load();
+</script>
+</body>
+</html>
