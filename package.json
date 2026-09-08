@@ -1,9 +1,9 @@
 {
   "name": "afterlight-radio",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Original 12-room place-based radio experience for Cloudflare Workers Static Assets",
+  "description": "Premium 12-room place-based listening experience for Cloudflare Workers",
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
@@ -13,6 +13,6 @@
     "cf:deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
-    "wrangler": "^4.34.0"
+    "wrangler": "4.34.0"
   }
 }
