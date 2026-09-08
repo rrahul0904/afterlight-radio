@@ -14,7 +14,7 @@ for(const slug of slugs){
     if(h.subarray(0,4).toString()!=='RIFF'||h.subarray(8,12).toString()!=='WAVE')throw new Error('Invalid WAV: '+p);
   }
 }
-for(const p of ['privacy','terms','support'])await access(path.join(pub,p,'index.html'));
+for(const p of ['privacy','terms','support','account'])await access(path.join(pub,p,'index.html'));
 
 const html=await readFile(path.join(root,'index.html'),'utf8');
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)],runtime=scripts.at(-1)?.[1];
@@ -46,4 +46,5 @@ if(worker.includes('SUPABASE_'))throw new Error('Stale Supabase backend remains'
 const migration=await readFile(path.join(root,'neon/migrations/20260908_afterlight_mvp.sql'),'utf8');
 for(const needle of ['references neon_auth."user"(id)','user_preferences','subscriptions','analytics_events'])if(!migration.includes(needle))throw new Error('Neon schema missing: '+needle);
 
-console.log('PASS: 12 routes, 36 audio files, first-party Neon Auth, Neon Postgres, premium gating, timers/favorites/share, Stripe checkout/webhook contract, legal pages');
+const account=await readFile(path.join(root,'account.html'),'utf8');for(const needle of ['/api/me','/api/portal','/api/auth/sign-in/email','Saved places','Manage billing'])if(!account.includes(needle))throw new Error('Account portal missing: '+needle);
+console.log('PASS: 12 routes, account portal, 36 audio files, first-party Neon Auth, Neon Postgres, premium gating, timers/favorites/share, Stripe checkout/webhook contract, legal pages');
