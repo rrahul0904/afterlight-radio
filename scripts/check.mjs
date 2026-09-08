@@ -32,7 +32,7 @@ if(wrangler.vars?.STRIPE_PRICE_MONTHLY!=='price_1UDVEkRB8OGmEnBw7xEw07J0'||wrang
 for(const slug of slugs)if(!html.includes(`slug:'${slug}'`))throw new Error('Room missing: '+slug);
 if((html.match(/slug:'/g)||[]).length!==12)throw new Error('Need exactly 12 rooms');
 
-for(const needle of ['new Audio()',"setAttribute('playsinline','')","if(i<0)i=5","new Set(['rooftop','window','roma'])",'id="favorite"','id="timerBtn"','id="shareBtn"','id="upgrade"','id="account"','id="loginPassword"','data-plan="monthly"','data-plan="annual"','/api/auth/sign-in/email','/api/checkout','/api/preferences','/audio/']){
+for(const needle of ['new Audio()',"setAttribute('playsinline','')","if(i<0)i=5","new Set(['rooftop','window','roma'])",'id="favorite"','id="timerBtn"','id="shareBtn"','id="upgrade"','id="account"','id="loginPassword"','data-plan="monthly"','data-plan="annual"','/api/auth/','sign-in/email','sign-up/email','/api/checkout','/api/preferences','/audio/']){
   if(!html.includes(needle))throw new Error('MVP surface missing: '+needle);
 }
 if(html.includes('SUPABASE_')||html.includes('/auth/v1/'))throw new Error('Stale Supabase auth code remains in browser');
