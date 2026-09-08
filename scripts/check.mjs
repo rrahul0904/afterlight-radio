@@ -24,21 +24,26 @@ new Function(runtime);
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const wrangler=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
 if(pkg.scripts.build!=='node scripts/build.mjs')throw new Error('Unexpected build command');
+if(pkg.dependencies?.['@neondatabase/serverless']!=='1.1.0')throw new Error('Neon serverless driver must be pinned');
 if(wrangler.main!=='src/worker.js'||wrangler.assets?.directory!=='./public'||wrangler.assets?.binding!=='ASSETS')throw new Error('Wrangler backend/static config mismatch');
+if(!wrangler.vars?.NEON_AUTH_BASE_URL?.includes('.neonauth.'))throw new Error('Neon Auth base URL missing');
+if(wrangler.vars?.STRIPE_PRICE_MONTHLY!=='price_1UDVEkRB8OGmEnBw7xEw07J0'||wrangler.vars?.STRIPE_PRICE_ANNUAL!=='price_1UDVEmRB8OGmEnBwO1DeztjQ')throw new Error('Stripe price IDs drifted');
 
 for(const slug of slugs)if(!html.includes(`slug:'${slug}'`))throw new Error('Room missing: '+slug);
 if((html.match(/slug:'/g)||[]).length!==12)throw new Error('Need exactly 12 rooms');
 
-for(const needle of ['new Audio()',"setAttribute('playsinline','')","if(i<0)i=5","new Set(['rooftop','window','roma'])",'id="favorite"','id="timerBtn"','id="shareBtn"','id="upgrade"','id="account"','data-plan="monthly"','data-plan="annual"','/api/checkout','/api/preferences','/audio/']){
+for(const needle of ['new Audio()',"setAttribute('playsinline','')","if(i<0)i=5","new Set(['rooftop','window','roma'])",'id="favorite"','id="timerBtn"','id="shareBtn"','id="upgrade"','id="account"','id="loginPassword"','data-plan="monthly"','data-plan="annual"','/api/auth/sign-in/email','/api/checkout','/api/preferences','/audio/']){
   if(!html.includes(needle))throw new Error('MVP surface missing: '+needle);
 }
+if(html.includes('SUPABASE_')||html.includes('/auth/v1/'))throw new Error('Stale Supabase auth code remains in browser');
 
 const worker=await readFile(path.join(root,'src/worker.js'),'utf8');
-for(const needle of ['/api/health','/api/config','/api/me','/api/preferences','/api/checkout','/api/portal','/api/events','/api/stripe/webhook','Stripe-Signature','2026-07-29.dahlia']){
+for(const needle of ["from '@neondatabase/serverless'","/api/auth/","/get-session","/api/health","/api/config","/api/me","/api/preferences","/api/checkout","/api/portal","/api/events","/api/stripe/webhook","Stripe-Signature","2026-07-29.dahlia"]){
   if(!worker.includes(needle))throw new Error('Worker capability missing: '+needle);
 }
-const migration=await readFile(path.join(root,'supabase/migrations/20260908_afterlight_mvp.sql'),'utf8');
-for(const needle of ['enable row level security','profiles_select_own','preferences_update_own','subscriptions_select_own','analytics_events']){
-  if(!migration.includes(needle))throw new Error('Supabase security/schema missing: '+needle);
-}
-console.log('PASS: 12 routes, 36 audio files, auth/account UI, premium gating, timers/favorites/share, Cloudflare API, Stripe webhook/checkout contract, Supabase RLS, legal pages');
+if(worker.includes('SUPABASE_'))throw new Error('Stale Supabase backend remains');
+
+const migration=await readFile(path.join(root,'neon/migrations/20260908_afterlight_mvp.sql'),'utf8');
+for(const needle of ['references neon_auth."user"(id)','user_preferences','subscriptions','analytics_events'])if(!migration.includes(needle))throw new Error('Neon schema missing: '+needle);
+
+console.log('PASS: 12 routes, 36 audio files, first-party Neon Auth, Neon Postgres, premium gating, timers/favorites/share, Stripe checkout/webhook contract, legal pages');

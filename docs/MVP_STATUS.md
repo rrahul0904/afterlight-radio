@@ -1,6 +1,6 @@
 # Afterlight MVP release status
 
-## Implemented in source
+## Implemented and provisioned
 
 - [x] Premium editorial landing/discovery experience
 - [x] 12 clean room URLs and responsive room player
@@ -8,32 +8,33 @@
 - [x] Favorites, share and 15/30/60 minute timers
 - [x] 36 deterministic build-generated original audio files
 - [x] iPhone/Safari user-gesture-compatible native Audio playback
-- [x] Passwordless account UI and Supabase Auth integration contract
-- [x] Cross-device preference persistence API
-- [x] Secure server-side premium entitlement model
-- [x] Stripe hosted Checkout endpoint for monthly/annual subscriptions
-- [x] Stripe Customer Portal endpoint
+- [x] Dedicated Neon `afterlight-radio` production database
+- [x] Managed Neon Auth provisioned on the production branch
+- [x] First-party auth proxy and email/password account UX
+- [x] Cross-device preference persistence API and database tables
+- [x] Server-side premium entitlement model
+- [x] Live Stripe `Afterlight+` product
+- [x] Live Stripe recurring prices: $2.99/month and $19.99/year
+- [x] Stripe-hosted Checkout endpoint
+- [x] Stripe Customer Portal endpoint in application code
 - [x] Stripe webhook signature verification and subscription synchronization
-- [x] First-party analytics and client error ingestion
+- [x] First-party analytics and client-error ingestion
 - [x] Privacy, Terms and Support pages
 - [x] Cloudflare Worker API + Static Assets architecture
-- [x] Automated CI checks for product, backend, RLS and audio assets
+- [x] Automated CI checks including Worker dry-run bundling
 
 ## External production activations still required
 
-These are account/infrastructure actions, not missing source code:
-
-- [ ] Create a dedicated Supabase project and apply the committed migration
-- [ ] Configure Supabase Auth Site URL / redirect allowlist
-- [ ] Set Cloudflare Supabase public/secret values
-- [ ] Create Stripe Afterlight+ product and two recurring prices
-- [ ] Enable Stripe Customer Portal
-- [ ] Create Stripe webhook endpoint and set its signing secret
-- [ ] Set the Stripe restricted key and price IDs in Cloudflare
-- [ ] Set a real support email
-- [ ] Connect GitHub main to Cloudflare and verify the production deployment
+- [ ] Connect/deploy GitHub `main` to Cloudflare
+- [ ] Set the Neon `DATABASE_URL` as a Cloudflare Worker secret
+- [ ] Add the resulting Cloudflare production URL to Neon Auth trusted domains
+- [ ] Create a Stripe restricted live API key and set `STRIPE_RESTRICTED_KEY` in Cloudflare
+- [ ] Enable/configure Stripe Customer Portal
+- [ ] Create the Stripe production webhook endpoint and set `STRIPE_WEBHOOK_SECRET`
+- [ ] Set a real `SUPPORT_EMAIL`
+- [ ] Execute a real production subscription using a controlled customer account and verify premium unlock/cancel lifecycle
 - [ ] Run physical-device certification on iPhone Safari, Android Chrome, desktop Safari/Chrome/Firefox
-- [ ] Replace/expand procedural launch audio with mastered commissioned/licensed-original content if higher artistic quality is required for paid launch
+- [ ] Replace or expand procedural launch audio with mastered commissioned/licensed-original content before broad paid marketing if the current music quality is not good enough
 
 ## Release rule
 

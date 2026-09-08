@@ -9,6 +9,10 @@
     "html_handling": "auto-trailing-slash"
   },
   "vars": {
-    "APP_ENV": "production"
+    "APP_ENV": "production",
+    "NEON_AUTH_BASE_URL": "https://ep-bitter-cake-axu59msq.neonauth.c-4.us-east-2.aws.neon.tech/afterlight/auth",
+    "STRIPE_PRODUCT_ID": "prod_VDx8nP5oUjNnCk",
+    "STRIPE_PRICE_MONTHLY": "price_1UDVEkRB8OGmEnBw7xEw07J0",
+    "STRIPE_PRICE_ANNUAL": "price_1UDVEmRB8OGmEnBwO1DeztjQ"
   }
 }
