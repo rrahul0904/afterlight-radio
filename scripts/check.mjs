@@ -28,4 +28,24 @@ if (!html.includes('new Audio()')) throw new Error('HTMLMediaElement player is m
 if (!html.includes("setAttribute('playsinline','')")) throw new Error('iOS playsinline path is missing');
 if (!html.includes("if(i<0)i=5")) throw new Error('Root rooftop fallback is missing');
 
-console.log('PASS: 12 routes, runtime JS syntax, Cloudflare config, WAV audio, native Audio player, iOS playsinline, rooftop default');
+const productChecks = [
+  ["FREE=new Set(['rooftop','window','roma'])",'Free/premium entitlement boundary'],
+  ["id=\"favorite\"",'Favorites control'],
+  ["id=\"shareBtn\"",'Share control'],
+  ["id=\"timerBtn\"",'Timer control'],
+  ["data-min=\"15\"",'15 minute timer'],
+  ["data-min=\"30\"",'30 minute timer'],
+  ["data-min=\"60\"",'60 minute timer'],
+  ["id=\"upgrade\"",'Afterlight+ upgrade dialog'],
+  ["$2.99",'Monthly pricing'],
+  ["$19.99",'Founding annual pricing'],
+  ["id=\"home\"",'Editorial discovery home'],
+  ["navigator.share",'Native share path'],
+  ["favs:new Set",'Persistent favorites state'],
+  ["timerEnd",'Persistent listening timer state']
+];
+for (const [needle,label] of productChecks) {
+  if (!html.includes(needle)) throw new Error(`${label} is missing`);
+}
+
+console.log('PASS: 12 routes, runtime JS syntax, Cloudflare config, WAV audio, native Audio player, iOS playsinline, rooftop default, editorial home, freemium gating, favorites, share, timers and pricing UX');
