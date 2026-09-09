@@ -2,9 +2,13 @@ import { neon } from '@neondatabase/serverless';
 
 const STRIPE_VERSION='2026-07-29.dahlia';
 const ACTIVE=new Set(['active','trialing','past_due']);
+const PAYMENT_LINKS={
+  monthly:'https://buy.stripe.com/14AbJ3dy88kJaiSdqkdZ600',
+  annual:'https://buy.stripe.com/eVqdRb2TucAZ62C1HCdZ601'
+};
 
 function json(data,status=200,headers={}){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}})}
-function configured(env){return {auth:!!env.NEON_AUTH_BASE_URL,data:!!env.DATABASE_URL,billing:!!(env.STRIPE_RESTRICTED_KEY&&env.STRIPE_WEBHOOK_SECRET&&env.STRIPE_PRICE_MONTHLY&&env.STRIPE_PRICE_ANNUAL)}}
+function configured(env){return {auth:!!env.NEON_AUTH_BASE_URL,data:!!env.DATABASE_URL,checkout:!!(PAYMENT_LINKS.monthly&&PAYMENT_LINKS.annual),webhook:!!env.STRIPE_WEBHOOK_SECRET,portal:!!env.STRIPE_RESTRICTED_KEY}}
 function originOf(req){return new URL(req.url).origin}
 async function body(req){try{return await req.json()}catch{return {}}}
 function db(env){if(!env.DATABASE_URL)throw new Error('Database is not configured');return neon(env.DATABASE_URL)}
@@ -71,10 +75,17 @@ async function preferences(req,env){
 }
 async function checkout(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
-  const x=await body(req),plan=x.plan==='annual'?'annual':'monthly',price=plan==='annual'?env.STRIPE_PRICE_ANNUAL:env.STRIPE_PRICE_MONTHLY;if(!price)return json({error:'Billing plan is not configured'},503);
+  const x=await body(req),plan=x.plan==='annual'?'annual':'monthly';
+  if(!env.STRIPE_RESTRICTED_KEY){
+    const base=PAYMENT_LINKS[plan];if(!base)return json({error:'Checkout is not configured'},503);
+    const u=new URL(base);u.searchParams.set('client_reference_id',auth.user.id);
+    if(auth.user.email)u.searchParams.set('locked_prefilled_email',auth.user.email);
+    return json({url:u.toString(),mode:'payment_link'});
+  }
+  const price=plan==='annual'?env.STRIPE_PRICE_ANNUAL:env.STRIPE_PRICE_MONTHLY;if(!price)return json({error:'Billing plan is not configured'},503);
   const profile=await ensureProfile(auth.user,env),origin=originOf(req),params={mode:'subscription','line_items[0][price]':price,'line_items[0][quantity]':1,success_url:origin+'/?checkout=success&session_id={CHECKOUT_SESSION_ID}',cancel_url:origin+'/?checkout=cancelled',client_reference_id:auth.user.id,'metadata[user_id]':auth.user.id,'metadata[plan]':plan,'subscription_data[metadata][user_id]':auth.user.id,'subscription_data[metadata][plan]':plan,allow_promotion_codes:'true',integration_identifier:'afterlight_web_qmztuvwx'};
   if(profile.stripe_customer_id)params.customer=profile.stripe_customer_id;else params.customer_email=auth.user.email;
-  const session=await stripe(env,'checkout/sessions',params);return json({url:session.url,id:session.id});
+  const session=await stripe(env,'checkout/sessions',params);return json({url:session.url,id:session.id,mode:'api'});
 }
 async function portal(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
@@ -106,9 +117,12 @@ async function webhook(req,env){
   const raw=await req.text(),signature=req.headers.get('Stripe-Signature');if(!env.STRIPE_WEBHOOK_SECRET||!await verifyStripe(raw,signature,env.STRIPE_WEBHOOK_SECRET))return json({error:'Invalid signature'},400);
   const event=JSON.parse(raw),obj=event.data?.object||{};
   if(event.type==='checkout.session.completed'){
-    const userId=obj.client_reference_id||obj.metadata?.user_id,customer=typeof obj.customer==='string'?obj.customer:obj.customer?.id;
-    if(userId&&customer){const sql=db(env);await sql`insert into profiles (user_id,stripe_customer_id,updated_at) values (${userId}::uuid,${customer},now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,updated_at=now()`}
-    if(obj.subscription)try{await syncSubscription(await stripeGet(env,'subscriptions/'+obj.subscription),env)}catch(e){console.error('subscription sync',e)}
+    const userId=obj.client_reference_id||obj.metadata?.user_id,customer=typeof obj.customer==='string'?obj.customer:obj.customer?.id,subscription=typeof obj.subscription==='string'?obj.subscription:obj.subscription?.id,plan=obj.metadata?.plan||'unknown';
+    if(userId&&customer){
+      const sql=db(env);
+      await sql`insert into profiles (user_id,stripe_customer_id,updated_at) values (${userId}::uuid,${customer},now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,updated_at=now()`;
+      if(subscription)await sql`insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,plan,status,updated_at) values (${userId}::uuid,${customer},${subscription},${plan},'active',now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,stripe_subscription_id=excluded.stripe_subscription_id,plan=excluded.plan,status='active',updated_at=now()`;
+    }
   }
   if(event.type==='customer.subscription.created'||event.type==='customer.subscription.updated'||event.type==='customer.subscription.deleted')await syncSubscription(obj,env);
   return json({received:true});
@@ -116,7 +130,8 @@ async function webhook(req,env){
 async function api(req,env,url){
   if(url.pathname.startsWith('/api/auth/'))return authProxy(req,env,url);
   if(url.pathname==='/api/health')return json({ok:true,configured:configured(env),backend:'neon'});
-  if(url.pathname==='/api/config')return json({authEnabled:configured(env).auth,billingEnabled:configured(env).billing,supportEmail:env.SUPPORT_EMAIL||''});
+  if(url.pathname==='/api/ready'){const c=configured(env);let database=false;if(c.data)try{const sql=db(env);const rows=await sql`select 1 as ok`;database=rows?.[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon'})}
+  if(url.pathname==='/api/config'){const c=configured(env);return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEmail:env.SUPPORT_EMAIL||''})}
   if(url.pathname==='/api/me'&&req.method==='GET')return me(req,env);
   if(url.pathname==='/api/preferences'&&(req.method==='GET'||req.method==='PUT'))return preferences(req,env);
   if(url.pathname==='/api/checkout'&&req.method==='POST')return checkout(req,env);
