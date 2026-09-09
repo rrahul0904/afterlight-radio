@@ -17,7 +17,7 @@ The non-secret Auth URL and Stripe IDs are pinned in `wrangler.jsonc`.
 ## Cloudflare secrets still required
 
 - `DATABASE_URL` — the privileged Neon pooled connection string; Worker only
-- `STRIPE_RESTRICTED_KEY` — a restricted live Stripe key with the minimum permissions required for Checkout Sessions, Customers, Subscriptions and Billing Portal sessions
+- `STRIPE_RESTRICTED_KEY` — optional for checkout; required only for API-created Checkout sessions and Stripe Customer Portal sessions. The default purchase flow uses hosted Payment Links.
 - `STRIPE_WEBHOOK_SECRET` — signing secret created after the production webhook URL exists
 - `SUPPORT_EMAIL` — may be stored as a normal Worker variable rather than a secret
 
@@ -50,3 +50,8 @@ Deploy command: `npx wrangler deploy`
 Production branch: `main`
 
 `GET /api/health` reports whether auth/database/billing are configured without disclosing secret values.
+
+
+## Vercel MCP secret injection
+
+The repository contains `api/runtime-secrets.json` as an intentionally empty tracked placeholder. Direct production deployments may replace that file **in the deployment payload only** with server-side secrets. Never commit populated values. Vercel bundles the file only into the serverless API function; it is not copied to `public/`.
