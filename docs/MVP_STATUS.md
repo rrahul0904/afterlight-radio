@@ -16,6 +16,7 @@
 - [x] Live Stripe `Afterlight+` product
 - [x] Live Stripe recurring prices: $2.99/month and $19.99/year
 - [x] Stripe-hosted Checkout endpoint
+- [x] Live Stripe Payment Links for monthly and annual subscriptions
 - [x] Stripe Customer Portal endpoint in application code
 - [x] Stripe webhook signature verification and subscription synchronization
 - [x] First-party analytics and client-error ingestion
@@ -28,7 +29,7 @@
 - [ ] Connect/deploy GitHub `main` to Cloudflare
 - [ ] Set the Neon `DATABASE_URL` as a Cloudflare Worker secret
 - [ ] Add the resulting Cloudflare production URL to Neon Auth trusted domains
-- [ ] Create a Stripe restricted live API key and set `STRIPE_RESTRICTED_KEY` in Cloudflare
+- [ ] Enable/configure Stripe Customer Portal (restricted API key is only required for portal-session creation)
 - [ ] Enable/configure Stripe Customer Portal
 - [ ] Create the Stripe production webhook endpoint and set `STRIPE_WEBHOOK_SECRET`
 - [ ] Set a real `SUPPORT_EMAIL`
