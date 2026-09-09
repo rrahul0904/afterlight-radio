@@ -38,13 +38,18 @@ for(const needle of ['new Audio()',"setAttribute('playsinline','')","if(i<0)i=5"
 if(html.includes('SUPABASE_')||html.includes('/auth/v1/'))throw new Error('Stale Supabase auth code remains in browser');
 
 const worker=await readFile(path.join(root,'src/worker.js'),'utf8');
+const core=await readFile(path.join(root,'src/api-core.js'),'utf8');
+const vercel=await readFile(path.join(root,'api/index.js'),'utf8');
+const vercelConfig=JSON.parse(await readFile(path.join(root,'vercel.json'),'utf8'));
 for(const needle of ["from '@neondatabase/serverless'","/api/auth/","/get-session","/api/health","/api/config","/api/me","/api/preferences","/api/checkout","/api/portal","/api/events","/api/stripe/webhook","Stripe-Signature","2026-07-29.dahlia"]){
   if(!worker.includes(needle))throw new Error('Worker capability missing: '+needle);
 }
-if(worker.includes('SUPABASE_'))throw new Error('Stale Supabase backend remains');
+if(worker.includes('SUPABASE_')||core.includes('SUPABASE_'))throw new Error('Stale Supabase backend remains');
+for(const needle of ["handleApi","bodyParser:false","getSetCookie","process.env"])if(!vercel.includes(needle))throw new Error('Vercel adapter missing: '+needle);
+if(vercelConfig.outputDirectory!=='public'||vercelConfig.rewrites?.[0]?.destination!=='/api?path=:path*')throw new Error('Vercel routing config mismatch');
 
 const migration=await readFile(path.join(root,'neon/migrations/20260908_afterlight_mvp.sql'),'utf8');
 for(const needle of ['references neon_auth."user"(id)','user_preferences','subscriptions','analytics_events'])if(!migration.includes(needle))throw new Error('Neon schema missing: '+needle);
 
 const account=await readFile(path.join(root,'account.html'),'utf8');for(const needle of ['/api/me','/api/portal','/api/auth/sign-in/email','Saved places','Manage billing'])if(!account.includes(needle))throw new Error('Account portal missing: '+needle);
-console.log('PASS: 12 routes, account portal, 36 audio files, first-party Neon Auth, Neon Postgres, premium gating, timers/favorites/share, Stripe checkout/webhook contract, legal pages');
+console.log('PASS: 12 routes, account portal, 36 audio files, first-party Neon Auth, Neon Postgres, dual Cloudflare/Vercel API adapters, premium gating, timers/favorites/share, Stripe checkout/webhook contract, legal pages');
