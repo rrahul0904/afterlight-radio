@@ -8,16 +8,17 @@
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
     "check:worker": "wrangler deploy --dry-run --outdir .wrangler-dry-run",
-    "test": "npm run build && npm run check && npm run check:vercel && npm run check:worker",
+    "test": "npm run build && npm run check && npm run check:vercel && npm run check:worker && npm run audit",
     "serve": "python3 -m http.server 4173 -d public",
     "cf:dev": "npm run build && wrangler dev",
     "cf:deploy": "npm run build && wrangler deploy",
-    "check:vercel": "node --check api/index.js"
+    "check:vercel": "node --check api/index.js",
+    "audit": "npm audit --audit-level=high"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0"
   },
   "devDependencies": {
-    "wrangler": "4.129.1"
+    "wrangler": "4.130.0"
   }
 }
