@@ -108,7 +108,7 @@ function render(){
   $('planTitle').textContent=premium?'Afterlight+':'Free collection';$('planStatus').textContent=sub.status||'Free';
   $('billingCycle').textContent=sub.plan==='annual'?'Annual':sub.plan==='monthly'?'Monthly':'—';$('periodEnd').textContent=date(sub.current_period_end);
   $('cancelState').textContent=sub.cancel_at_period_end?'Cancels at period end':'Not scheduled';
-  $('manageBilling').disabled=!sub.stripe_customer_id;$('billingNote').textContent=sub.stripe_customer_id?'Billing opens securely in Stripe.':'No billing account exists yet.';
+  $('manageBilling').disabled=!sub.stripe_customer_id||!config?.portalEnabled;$('billingNote').textContent=!sub.stripe_customer_id?'No billing account exists yet.':config?.portalEnabled?'Billing opens securely in Stripe.':'Stripe self-service billing is awaiting portal activation.';
   const favs=Array.isArray(pref.favorites)?pref.favorites:[];$('rooms').innerHTML='';
   for(const slug of favs){const a=document.createElement('a');a.className='room';a.href='/'+slug+'/';a.innerHTML='<strong>'+ (ROOM_NAMES[slug]||slug) +'</strong><span>Open room →</span>';$('rooms').appendChild(a)}
   $('emptyRooms').hidden=favs.length>0;$('lastRoom').textContent=ROOM_NAMES[pref.last_room]||pref.last_room||'—';$('lastTrack').textContent=Number.isInteger(pref.last_track)?String(pref.last_track+1):'—';$('muted').textContent=pref.muted?'Yes':'No';
@@ -117,7 +117,7 @@ function render(){
 async function load(){try{config=await request('/api/config');me=await request('/api/me');render()}catch{me=null;render()}}
 async function login(e){e.preventDefault();$('loginStatus').textContent='Signing you in…';try{await request('/api/auth/sign-in/email',{method:'POST',body:JSON.stringify({email:$('email').value.trim(),password:$('password').value,rememberMe:true})});await load();if(!me?.user)throw new Error('Session could not be verified') }catch(err){$('loginStatus').textContent=err.message}}
 async function logout(){try{await request('/api/auth/sign-out',{method:'POST',body:'{}'})}catch{}me=null;render()}
-async function billing(){if(!me?.subscription?.stripe_customer_id)return;try{const x=await request('/api/portal',{method:'POST',body:'{}'});if(x.url)location.assign(x.url)}catch(err){$('billingNote').textContent=err.message}}
+async function billing(){if(!me?.subscription?.stripe_customer_id||!config?.portalEnabled)return;try{const x=await request('/api/portal',{method:'POST',body:'{}'});if(x.url)location.assign(x.url)}catch(err){$('billingNote').textContent=err.message}}
 $('loginForm').onsubmit=login;$('manageBilling').onclick=billing;$('signOut').onclick=$('signOutTop').onclick=logout;load();
 </script>
 </body>
