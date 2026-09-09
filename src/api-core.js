@@ -9,12 +9,21 @@ function originOf(req){return new URL(req.url).origin}
 async function body(req){try{return await req.json()}catch{return {}}}
 function db(env){if(!env.DATABASE_URL)throw new Error('Database is not configured');return neon(env.DATABASE_URL)}
 
+function authHeaders(req,includeContent=false){
+  const headers=new Headers({Accept:req.headers.get('Accept')||'application/json'});
+  const cookie=req.headers.get('Cookie');if(cookie)headers.set('Cookie',cookie);
+  const ua=req.headers.get('User-Agent');if(ua)headers.set('User-Agent',ua);
+  const origin=req.headers.get('Origin')||originOf(req);headers.set('Origin',origin);
+  if(includeContent){
+    const type=req.headers.get('Content-Type');if(type)headers.set('Content-Type',type);
+  }
+  return headers;
+}
 async function authProxy(req,env,url){
   if(!env.NEON_AUTH_BASE_URL)return json({error:'Authentication is not configured'},503);
   const suffix=url.pathname.slice('/api/auth'.length)||'/get-session';
   const target=new URL(env.NEON_AUTH_BASE_URL.replace(/\/$/,'')+suffix+url.search);
-  const headers=new Headers(req.headers);headers.delete('host');
-  const init={method:req.method,headers,redirect:'manual'};
+  const init={method:req.method,headers:authHeaders(req,true),redirect:'manual'};
   if(req.method!=='GET'&&req.method!=='HEAD')init.body=req.body;
   const upstream=await fetch(target,init);
   const outHeaders=new Headers(upstream.headers);outHeaders.set('Cache-Control','no-store');
@@ -24,10 +33,7 @@ async function authProxy(req,env,url){
 }
 async function authSession(req,env){
   if(!env.NEON_AUTH_BASE_URL)return null;
-  const headers=new Headers({Accept:'application/json'});
-  const cookie=req.headers.get('Cookie');if(cookie)headers.set('Cookie',cookie);
-  const origin=req.headers.get('Origin')||originOf(req);headers.set('Origin',origin);
-  const r=await fetch(env.NEON_AUTH_BASE_URL.replace(/\/$/,'')+'/get-session',{headers,redirect:'manual'});
+  const r=await fetch(env.NEON_AUTH_BASE_URL.replace(/\/$/,'')+'/get-session',{headers:authHeaders(req),redirect:'manual'});
   if(!r.ok)return null;const data=await r.json().catch(()=>null);return data?.user?data:null;
 }
 async function ensureProfile(user,env){
