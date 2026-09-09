@@ -1,4 +1,5 @@
 import { handleApi } from '../src/api-core.js';
+import runtimeSecrets from './runtime-secrets.json' with {type:'json'};
 
 const PUBLIC_ENV={
   NEON_AUTH_BASE_URL:'https://ep-bitter-cake-axu59msq.neonauth.c-4.us-east-2.aws.neon.tech/afterlight/auth',
@@ -43,7 +44,7 @@ export default async function handler(req,res){
       body,
       duplex:body?'half':undefined
     });
-    const env={...PUBLIC_ENV,...process.env};
+    const env={...PUBLIC_ENV,...runtimeSecrets,...process.env};
     const response=await handleApi(request,env);
     res.statusCode=response.status;
     const cookies=response.headers.getSetCookie?.()||[];
