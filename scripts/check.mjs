@@ -40,14 +40,16 @@ if(html.includes('SUPABASE_')||html.includes('/auth/v1/'))throw new Error('Stale
 const worker=await readFile(path.join(root,'src/worker.js'),'utf8');
 const core=await readFile(path.join(root,'src/api-core.js'),'utf8');
 const vercel=await readFile(path.join(root,'api/index.js'),'utf8');
+const runtimeSecrets=JSON.parse(await readFile(path.join(root,'api/runtime-secrets.json'),'utf8'));
 const vercelConfig=JSON.parse(await readFile(path.join(root,'vercel.json'),'utf8'));
-for(const needle of ["/api/auth/","/get-session","/api/health","/api/config","/api/me","/api/preferences","/api/checkout","/api/portal","/api/events","/api/stripe/webhook","Stripe-Signature","2026-07-29.dahlia"]){
+for(const needle of ["/api/auth/","/get-session","/api/health","/api/ready","/api/config","/api/me","/api/preferences","/api/checkout","/api/portal","/api/events","/api/stripe/webhook","Stripe-Signature","2026-07-29.dahlia","buy.stripe.com","locked_prefilled_email"]){
   if(!core.includes(needle))throw new Error('API core capability missing: '+needle);
 }
 if(!core.includes("from '@neondatabase/serverless'"))throw new Error('Neon runtime import missing from API core');
 if(!worker.includes("handleApi"))throw new Error('Cloudflare adapter must call shared API core');
 if(worker.includes('SUPABASE_')||core.includes('SUPABASE_'))throw new Error('Stale Supabase backend remains');
-for(const needle of ["handleApi","bodyParser:false","getSetCookie","process.env"])if(!vercel.includes(needle))throw new Error('Vercel adapter missing: '+needle);
+for(const needle of ["handleApi","bodyParser:false","getSetCookie","runtime-secrets.json","process.env"])if(!vercel.includes(needle))throw new Error('Vercel adapter missing: '+needle);
+if(Object.keys(runtimeSecrets).length!==0)throw new Error('Tracked runtime-secrets.json must remain empty');
 if(vercelConfig.outputDirectory!=='public'||vercelConfig.rewrites?.[0]?.destination!=='/api?path=:path*')throw new Error('Vercel routing config mismatch');
 
 const migration=await readFile(path.join(root,'neon/migrations/20260908_afterlight_mvp.sql'),'utf8');
