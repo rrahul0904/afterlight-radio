@@ -22,27 +22,22 @@ jobs:
         with:
           node-version: 22
 
-      - name: Check deployment credentials
-        id: credentials
+      - name: Require deployment credentials
         shell: bash
         run: |
-          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Cloudflare deployment skipped until CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are configured."
+          set -euo pipefail
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo "::error::Cloudflare deployment blocked: configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."
+            exit 1
           fi
 
       - name: Install
-        if: steps.credentials.outputs.ready == 'true'
         run: npm install
 
       - name: Certify release
-        if: steps.credentials.outputs.ready == 'true'
         run: npm test
 
       - name: Deploy Worker
-        if: steps.credentials.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
