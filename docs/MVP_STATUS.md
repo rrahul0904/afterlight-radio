@@ -10,6 +10,7 @@ _Last verified: 2026-09-10_
 - Production readiness: **passing** (`auth`, `database`, `checkout`, `webhook` all true)
 - Production verification workflow: **passing**
 - Production account lifecycle workflow: **passing**
+- Cross-browser production matrix: **passing**
 - Standard repository CI: **passing**
 - Cloudflare: **optional manual mirror**, not a production blocker
 
@@ -41,12 +42,12 @@ _Last verified: 2026-09-10_
 - [x] Privacy, Terms, Support and Account portal pages
 - [x] Automated CI, production verification and account lifecycle workflows
 - [x] Cloudflare workflow made manual-only so optional hosting cannot make normal releases red
-- [x] Cross-browser production matrix added for Chromium, Firefox, WebKit and mobile-emulated Chromium/WebKit
+- [x] Cross-browser production matrix passed on desktop Chromium, Firefox and WebKit plus mobile-emulated Chromium and WebKit
+- [x] Production browser matrix verifies homepage, Rooftop, real WAV range delivery, Play state and account portal routing
 
 ## Remaining launch activation
 
 - [ ] Configure Stripe Customer Portal / hosted portal login. The connected Stripe credential currently has read access but not portal-configuration write permission.
-- [ ] Complete the new cross-browser matrix run and fix any browser-specific defect it finds.
 - [ ] Perform one controlled **non-discounted** real customer purchase before broad paid launch to validate the actual card-payment experience in addition to the already-proven zero-dollar subscription/webhook lifecycle.
 - [ ] Perform final physical-device audio UX spot-check on at least one real iPhone and one real Android device; CI covers browser engines and mobile emulation but cannot certify device speakers, mute switch behavior or OS media controls.
 - [ ] Replace or expand procedural launch audio with mastered commissioned/licensed-original content before significant paid marketing if the current artistic quality is not sufficient.
@@ -58,8 +59,8 @@ _Last verified: 2026-09-10_
 
 ## Current release verdict
 
-Afterlight is a **functional production MVP on Vercel + Neon** with live Auth, database persistence, Stripe checkout, webhook-driven subscription entitlements, support, account UX, audio delivery and passing production/account smoke tests.
+Afterlight is a **functional production MVP on Vercel + Neon** with live Auth, database persistence, Stripe checkout, webhook-driven subscription entitlements, support, account UX, audio delivery and passing production/account/browser smoke tests.
 
-The core subscription state path is now proven in live Stripe without charging a card: `active` entitlement was written by the production webhook and cancellation propagated correctly.
+The core subscription state path is proven in live Stripe without charging a card: `active` entitlement was written by the production webhook and cancellation propagated correctly.
 
 The only material account-side platform blocker remaining is Stripe Customer Portal configuration. Broad paid marketing should also wait for one real card checkout and final physical-device/audio-content sign-off.
