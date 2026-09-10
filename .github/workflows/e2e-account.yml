@@ -2,6 +2,10 @@ name: E2E Account Smoke
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/e2e-account.yml'
 
 permissions:
   contents: read
