@@ -50,9 +50,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/" | grep -q 'Afterlight'
-          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/rooftop/" | grep -q 'Nobody wants to go in'
-          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account/" | grep -q 'Your Afterlight'
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/" -o /tmp/home.html
+          grep -q 'Afterlight' /tmp/home.html
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/rooftop/" -o /tmp/rooftop.html
+          grep -q 'Nobody wants to go in' /tmp/rooftop.html
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account/" -o /tmp/account.html
+          grep -q 'Your Afterlight' /tmp/account.html
 
       - name: Audio delivery
         shell: bash
