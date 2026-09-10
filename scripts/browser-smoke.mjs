@@ -36,8 +36,10 @@ for(const [name,type,contextOptions] of targets){
 
     r=await page.goto(base+'/account/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('account status '+r?.status());
-    await page.locator('body').waitFor({state:'visible',timeout:8000});
-    if(!(await page.locator('body').innerText()).includes('Your Afterlight'))throw new Error('account portal copy missing');
+    if((await page.title())!=='Your Afterlight')throw new Error('account title mismatch: '+await page.title());
+    await page.locator('#signedOut').waitFor({state:'attached',timeout:8000});
+    await page.locator('#signedIn').waitFor({state:'attached',timeout:8000});
+    await page.locator('#loginForm').waitFor({state:'attached',timeout:8000});
 
     if(errors.length)throw new Error(errors.join(' | '));
     console.log('PASS',name,wav.bytes+' bytes');
