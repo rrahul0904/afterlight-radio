@@ -1,0 +1,36 @@
+name: Export Vercel Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/export-vercel-source.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package deployment source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/vercel-source
+          cp index.html account.html package.json vercel.json dist/vercel-source/
+          mkdir -p dist/vercel-source/scripts dist/vercel-source/api dist/vercel-source/legal
+          cp scripts/build.mjs scripts/audio-library.mjs dist/vercel-source/scripts/
+          cp api/index.js dist/vercel-source/api/
+          cp legal/privacy.html legal/terms.html legal/support.html dist/vercel-source/legal/
+          node --check dist/vercel-source/api/index.js
+          cd dist/vercel-source
+          zip -9 -r ../vercel-source.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vercel-source
+          path: dist/vercel-source.zip
+          if-no-files-found: error
+          retention-days: 3
