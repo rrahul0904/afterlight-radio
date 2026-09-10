@@ -4,13 +4,14 @@ _Last verified: 2026-09-10_
 
 ## Live production state
 
-- Vercel frontend: `https://afterlight-radio.vercel.app`
-- Neon Function backend: `afterlightapi` deployment 6
+- Canonical production frontend: `https://afterlight-radio.vercel.app`
+- Production API: Neon Function `afterlightapi`
 - Neon database: `afterlight`
+- Production readiness: **passing** (`auth`, `database`, `checkout`, `webhook` all true)
 - Production verification workflow: **passing**
 - Production account lifecycle workflow: **passing**
 - Standard repository CI: **passing**
-- Cloudflare deployment workflow: **intentionally failing until Cloudflare credentials are configured**
+- Cloudflare: **optional manual mirror**, not a production blocker
 
 ## Implemented and verified
 
@@ -19,42 +20,46 @@ _Last verified: 2026-09-10_
 - [x] Three free rooms / nine Afterlight+ rooms
 - [x] Favorites, share and 15/30/60 minute timers
 - [x] 36 deterministic build-generated original WAV audio files
-- [x] iPhone/Safari user-gesture-compatible native Audio playback implementation
-- [x] Dedicated Neon `afterlight` production database
-- [x] Managed Neon Auth provisioned on the production branch
-- [x] First-party Vercel API proxy to the Neon Function backend
-- [x] Email/password signup, session lookup and sign-out verified against production
-- [x] Cross-device preference persistence verified against production
+- [x] iPhone/Safari user-gesture-compatible native Audio implementation
+- [x] Dedicated Neon production database
+- [x] Managed Neon Auth
+- [x] First-party Vercel API proxy to Neon Function
+- [x] Email/password signup, session lookup and sign-out verified in production
+- [x] Cross-device preference persistence verified in production
 - [x] Server-side premium entitlement model
 - [x] Live Stripe `Afterlight+` product
-- [x] Live Stripe recurring prices: $2.99/month and $19.99/year
+- [x] Live recurring prices: $2.99/month and $19.99/year
 - [x] Live Stripe Payment Links for monthly and annual subscriptions
 - [x] Stripe webhook signature verification and subscription synchronization
-- [x] Live production Stripe webhook rotated and configured on Neon
-- [x] Stale duplicate Stripe webhook disabled
+- [x] Live production Stripe webhook configured on Neon
+- [x] Stale duplicate webhook disabled
+- [x] Zero-dollar **live Stripe subscription lifecycle verified**: Stripe `active` reached Neon, then cancellation propagated to Neon as `canceled`
+- [x] Verification coupon deleted after use
+- [x] Synthetic Neon billing-test identity deleted; application subscription row cascade cleanup verified
 - [x] First-party analytics and client-error ingestion
-- [x] Privacy, Terms and Support pages
-- [x] Account portal page and billing-management application flow
-- [x] Cloudflare Worker API + Static Assets architecture checked in
-- [x] Automated CI, release verification and account smoke workflows
-- [x] Production verification covers readiness, auth transport, Vercel proxy, homepage, room route, account page, WAV delivery and support validation
-- [x] Synthetic production account smoke covers signup, authenticated `/api/me`, preference write/read, logout and post-logout rejection
-- [x] Synthetic test accounts cleaned from Neon Auth and application profiles after validation
+- [x] Persisted in-app support request flow
+- [x] Privacy, Terms, Support and Account portal pages
+- [x] Automated CI, production verification and account lifecycle workflows
+- [x] Cloudflare workflow made manual-only so optional hosting cannot make normal releases red
+- [x] Cross-browser production matrix added for Chromium, Firefox, WebKit and mobile-emulated Chromium/WebKit
 
-## Remaining external production activations
+## Remaining launch activation
 
-- [ ] Configure GitHub repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then complete the Cloudflare Worker deployment
-- [ ] Add the eventual Cloudflare production origin to Neon Auth trusted domains
-- [ ] Configure Stripe Customer Portal. Preferred path: enable Stripe's hosted portal login page and use its shareable URL; alternative path: provision a least-privilege Stripe key that can create Billing Portal sessions
-- [ ] Set a real `SUPPORT_EMAIL`
-- [ ] Execute a controlled real production subscription and verify webhook-driven premium unlock, renewal/cancel status propagation and premium-room access
-- [ ] Run physical-device certification on iPhone Safari, Android Chrome, desktop Safari/Chrome/Firefox
-- [ ] Replace or expand procedural launch audio with mastered commissioned/licensed-original content before broad paid marketing if the current music quality is not good enough
+- [ ] Configure Stripe Customer Portal / hosted portal login. The connected Stripe credential currently has read access but not portal-configuration write permission.
+- [ ] Complete the new cross-browser matrix run and fix any browser-specific defect it finds.
+- [ ] Perform one controlled **non-discounted** real customer purchase before broad paid launch to validate the actual card-payment experience in addition to the already-proven zero-dollar subscription/webhook lifecycle.
+- [ ] Perform final physical-device audio UX spot-check on at least one real iPhone and one real Android device; CI covers browser engines and mobile emulation but cannot certify device speakers, mute switch behavior or OS media controls.
+- [ ] Replace or expand procedural launch audio with mastered commissioned/licensed-original content before significant paid marketing if the current artistic quality is not sufficient.
+
+## Optional, not blockers
+
+- [ ] Configure `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` only if a Cloudflare mirror is still desired.
+- [ ] Add a custom production domain when branding is ready.
 
 ## Current release verdict
 
-The application is a functional production MVP on Vercel + Neon with live Auth, persistence, Stripe Checkout links, webhook processing, account UX, audio delivery and passing production smoke tests.
+Afterlight is a **functional production MVP on Vercel + Neon** with live Auth, database persistence, Stripe checkout, webhook-driven subscription entitlements, support, account UX, audio delivery and passing production/account smoke tests.
 
-It is **not yet launch-complete for the requested Cloudflare target** because the repository has no Cloudflare API token/account ID, and the Stripe Customer Portal configuration still requires an account-side Stripe permission/configuration that the connected credential cannot perform.
+The core subscription state path is now proven in live Stripe without charging a card: `active` entitlement was written by the production webhook and cancellation propagated correctly.
 
-Do not call the paid Cloudflare launch 100% complete until every unchecked activation above is resolved and a real paid subscription has been verified end to end on the final production origin.
+The only material account-side platform blocker remaining is Stripe Customer Portal configuration. Broad paid marketing should also wait for one real card checkout and final physical-device/audio-content sign-off.
