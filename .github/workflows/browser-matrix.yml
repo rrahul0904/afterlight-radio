@@ -1,0 +1,33 @@
+name: Browser Matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'account.html'
+      - 'legal/**'
+      - 'scripts/browser-smoke.mjs'
+      - '.github/workflows/browser-matrix.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE_URL: https://afterlight-radio.vercel.app
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Exercise production browsers
+        run: node scripts/browser-smoke.mjs
