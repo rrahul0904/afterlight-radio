@@ -1,12 +1,4 @@
-import { handleApi } from '../src/api-core.js';
-import runtimeSecrets from './runtime-secrets.json' with {type:'json'};
-
-const PUBLIC_ENV={
-  NEON_AUTH_BASE_URL:'https://ep-bitter-cake-axu59msq.neonauth.c-4.us-east-2.aws.neon.tech/afterlight/auth',
-  STRIPE_PRODUCT_ID:'prod_VDx8nP5oUjNnCk',
-  STRIPE_PRICE_MONTHLY:'price_1UDVEkRB8OGmEnBw7xEw07J0',
-  STRIPE_PRICE_ANNUAL:'price_1UDVEmRB8OGmEnBwO1DeztjQ'
-};
+const BACKEND='https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech';
 
 export const config={api:{bodyParser:false}};
 
@@ -17,48 +9,53 @@ async function rawBody(req){
   return chunks.length?Buffer.concat(chunks):undefined;
 }
 
-function requestUrl(req){
+function frontendOrigin(req){
   const proto=(req.headers['x-forwarded-proto']||'https').split(',')[0].trim();
-  const host=req.headers['x-forwarded-host']||req.headers.host;
+  const host=(req.headers['x-forwarded-host']||req.headers.host||'afterlight-radio.vercel.app').split(',')[0].trim();
+  return proto+'://'+host;
+}
+
+function targetUrl(req){
   const path=req.query?.path;
+  let route='/api';
   if(path!==undefined){
     const joined=Array.isArray(path)?path.join('/'):String(path);
-    const qs=new URLSearchParams(req.query);
-    qs.delete('path');
-    return proto+'://'+host+'/api/'+joined+(qs.size?'?'+qs:'');
+    route+='/'+joined;
   }
-  return proto+'://'+host+(req.url||'/api');
+  const qs=new URLSearchParams();
+  for(const [key,value] of Object.entries(req.query||{})){
+    if(key==='path')continue;
+    if(Array.isArray(value))for(const item of value)qs.append(key,String(item));
+    else if(value!==undefined)qs.set(key,String(value));
+  }
+  return BACKEND+route+(qs.size?'?'+qs.toString():'');
+}
+
+function proxyHeaders(req){
+  const h=new Headers({Accept:req.headers.accept||'application/json','X-Afterlight-Origin':frontendOrigin(req)});
+  for(const key of ['cookie','content-type','user-agent','stripe-signature']){
+    const value=req.headers[key];if(value)h.set(key,Array.isArray(value)?value.join(', '):String(value));
+  }
+  return h;
 }
 
 export default async function handler(req,res){
   try{
     const body=await rawBody(req);
-    const headers=new Headers();
-    for(const [key,value] of Object.entries(req.headers)){
-      if(Array.isArray(value))for(const v of value)headers.append(key,v);
-      else if(value!==undefined)headers.set(key,String(value));
-    }
-    const request=new Request(requestUrl(req),{
-      method:req.method,
-      headers,
-      body,
-      duplex:body?'half':undefined
-    });
-    const env={...PUBLIC_ENV,...runtimeSecrets,...process.env};
-    const response=await handleApi(request,env);
+    const response=await fetch(targetUrl(req),{method:req.method,headers:proxyHeaders(req),body,duplex:body?'half':undefined,redirect:'manual'});
     res.statusCode=response.status;
     const cookies=response.headers.getSetCookie?.()||[];
     for(const [key,value] of response.headers){
-      if(key.toLowerCase()==='set-cookie')continue;
+      if(key.toLowerCase()==='set-cookie'||key.toLowerCase()==='content-length')continue;
       res.setHeader(key,value);
     }
     if(cookies.length)res.setHeader('Set-Cookie',cookies);
-    const bytes=Buffer.from(await response.arrayBuffer());
-    res.end(bytes);
+    res.end(Buffer.from(await response.arrayBuffer()));
   }catch(error){
     console.error(error);
-    res.statusCode=500;
+    res.statusCode=502;
     res.setHeader('Content-Type','application/json; charset=utf-8');
-    res.end(JSON.stringify({error:'Internal server error'}));
+    res.setHeader('Cache-Control','no-store');
+    res.end(JSON.stringify({error:'Afterlight backend is temporarily unavailable'}));
   }
 }
