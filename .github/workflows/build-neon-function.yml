@@ -1,0 +1,46 @@
+name: Build Neon Function
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - 'src/api-core.js'
+      - 'package.json'
+      - '.github/workflows/build-neon-function.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm install
+      - name: Bundle Neon Function
+        run: |
+          mkdir -p dist/neon-function
+          npx --yes esbuild@0.25.10 functions/afterlight.mjs \
+            --bundle \
+            --platform=node \
+            --target=node24 \
+            --format=esm \
+            --outfile=dist/neon-function/index.mjs
+          cd dist/neon-function
+          zip -9 ../afterlight-neon-function.zip index.mjs
+      - name: Upload function bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-neon-function
+          path: dist/afterlight-neon-function.zip
+          if-no-files-found: error
+          retention-days: 3
