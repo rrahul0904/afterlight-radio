@@ -23,7 +23,6 @@ jobs:
           set -euo pipefail
           EMAIL="afterlight-e2e-$(date +%s)@example.com"
           PASSWORD="Afterlight-E2E-$(openssl rand -hex 8)!"
-          echo "EMAIL=$EMAIL" >> "$GITHUB_ENV"
 
           SIGNUP_STATUS="$(curl --silent --show-error --cookie-jar /tmp/cookies.txt --cookie /tmp/cookies.txt --output /tmp/signup.json --write-out '%{http_code}' -X POST "$APP/api/auth/sign-up/email" -H 'Content-Type: application/json' --data "{\"name\":\"Afterlight E2E\",\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
           echo "signup_status=$SIGNUP_STATUS"
@@ -32,7 +31,7 @@ jobs:
           ME_STATUS="$(curl --silent --show-error --cookie-jar /tmp/cookies.txt --cookie /tmp/cookies.txt --output /tmp/me.json --write-out '%{http_code}' "$APP/api/me")"
           echo "me_status=$ME_STATUS"
           test "$ME_STATUS" = "200"
-          node -e 'const x=require("fs").readFileSync("/tmp/me.json","utf8");const j=JSON.parse(x);if(!j.user?.id||j.user.email!==process.env.EMAIL||j.premium!==false)process.exit(1)'
+          node -e 'const j=JSON.parse(require("fs").readFileSync("/tmp/me.json","utf8"));if(!j.user?.id||j.user.email!==process.argv[1]||j.premium!==false)process.exit(1)' "$EMAIL"
 
           PREF_STATUS="$(curl --silent --show-error --cookie-jar /tmp/cookies.txt --cookie /tmp/cookies.txt --output /tmp/prefs.json --write-out '%{http_code}' -X PUT "$APP/api/preferences" -H 'Content-Type: application/json' --data '{"favorites":["rooftop","window"],"last_room":"window","last_track":1,"volume":61,"muted":false,"timer_end":null}')"
           echo "preferences_status=$PREF_STATUS"
