@@ -9,7 +9,8 @@ const PAYMENT_LINKS={
 
 function json(data,status=200,headers={}){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}})}
 function configured(env){return {auth:!!env.NEON_AUTH_BASE_URL,data:!!env.DATABASE_URL,checkout:!!(PAYMENT_LINKS.monthly&&PAYMENT_LINKS.annual),webhook:!!env.STRIPE_WEBHOOK_SECRET,portal:!!env.STRIPE_RESTRICTED_KEY}}
-function originOf(req){return new URL(req.url).origin}
+function appOrigin(req){return req.headers.get('X-Afterlight-Origin')||req.headers.get('Origin')||new URL(req.url).origin}
+function originOf(req){return appOrigin(req)}
 async function body(req){try{return await req.json()}catch{return {}}}
 function db(env){if(!env.DATABASE_URL)throw new Error('Database is not configured');return neon(env.DATABASE_URL)}
 
@@ -17,10 +18,8 @@ function authHeaders(req,includeContent=false){
   const headers=new Headers({Accept:req.headers.get('Accept')||'application/json'});
   const cookie=req.headers.get('Cookie');if(cookie)headers.set('Cookie',cookie);
   const ua=req.headers.get('User-Agent');if(ua)headers.set('User-Agent',ua);
-  const origin=req.headers.get('Origin')||originOf(req);headers.set('Origin',origin);
-  if(includeContent){
-    const type=req.headers.get('Content-Type');if(type)headers.set('Content-Type',type);
-  }
+  headers.set('Origin',appOrigin(req));
+  if(includeContent){const type=req.headers.get('Content-Type');if(type)headers.set('Content-Type',type)}
   return headers;
 }
 async function authProxy(req,env,url){
@@ -32,7 +31,7 @@ async function authProxy(req,env,url){
   const upstream=await fetch(target,init);
   const outHeaders=new Headers(upstream.headers);outHeaders.set('Cache-Control','no-store');
   const location=outHeaders.get('location');
-  if(location&&location.startsWith(env.NEON_AUTH_BASE_URL))outHeaders.set('location',originOf(req)+'/api/auth'+location.slice(env.NEON_AUTH_BASE_URL.length));
+  if(location&&location.startsWith(env.NEON_AUTH_BASE_URL))outHeaders.set('location',appOrigin(req)+'/api/auth'+location.slice(env.NEON_AUTH_BASE_URL.length));
   return new Response(upstream.body,{status:upstream.status,statusText:upstream.statusText,headers:outHeaders});
 }
 async function authSession(req,env){
@@ -54,7 +53,6 @@ async function stripe(env,path,params){
   const r=await fetch('https://api.stripe.com/v1/'+path,{method:'POST',headers:{Authorization:'Bearer '+env.STRIPE_RESTRICTED_KEY,'Stripe-Version':STRIPE_VERSION,'Content-Type':'application/x-www-form-urlencoded'},body:form});
   const data=await r.json();if(!r.ok)throw new Error(data?.error?.message||'Stripe request failed');return data;
 }
-async function stripeGet(env,path){const r=await fetch('https://api.stripe.com/v1/'+path,{headers:{Authorization:'Bearer '+env.STRIPE_RESTRICTED_KEY,'Stripe-Version':STRIPE_VERSION}});const data=await r.json();if(!r.ok)throw new Error(data?.error?.message||'Stripe request failed');return data}
 
 async function me(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
@@ -75,22 +73,15 @@ async function preferences(req,env){
 }
 async function checkout(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
-  const x=await body(req),plan=x.plan==='annual'?'annual':'monthly';
-  if(!env.STRIPE_RESTRICTED_KEY){
-    const base=PAYMENT_LINKS[plan];if(!base)return json({error:'Checkout is not configured'},503);
-    const u=new URL(base);u.searchParams.set('client_reference_id',auth.user.id);
-    if(auth.user.email)u.searchParams.set('locked_prefilled_email',auth.user.email);
-    return json({url:u.toString(),mode:'payment_link'});
-  }
-  const price=plan==='annual'?env.STRIPE_PRICE_ANNUAL:env.STRIPE_PRICE_MONTHLY;if(!price)return json({error:'Billing plan is not configured'},503);
-  const profile=await ensureProfile(auth.user,env),origin=originOf(req),params={mode:'subscription','line_items[0][price]':price,'line_items[0][quantity]':1,success_url:origin+'/?checkout=success&session_id={CHECKOUT_SESSION_ID}',cancel_url:origin+'/?checkout=cancelled',client_reference_id:auth.user.id,'metadata[user_id]':auth.user.id,'metadata[plan]':plan,'subscription_data[metadata][user_id]':auth.user.id,'subscription_data[metadata][plan]':plan,allow_promotion_codes:'true',integration_identifier:'afterlight_web_qmztuvwx'};
-  if(profile.stripe_customer_id)params.customer=profile.stripe_customer_id;else params.customer_email=auth.user.email;
-  const session=await stripe(env,'checkout/sessions',params);return json({url:session.url,id:session.id,mode:'api'});
+  const x=await body(req),plan=x.plan==='annual'?'annual':'monthly',base=PAYMENT_LINKS[plan];if(!base)return json({error:'Checkout is not configured'},503);
+  const u=new URL(base);u.searchParams.set('client_reference_id',auth.user.id);if(auth.user.email)u.searchParams.set('locked_prefilled_email',auth.user.email);
+  return json({url:u.toString(),mode:'payment_link'});
 }
 async function portal(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
   const profile=await ensureProfile(auth.user,env);if(!profile.stripe_customer_id)return json({error:'No billing account found'},404);
-  const p=await stripe(env,'billing_portal/sessions',{customer:profile.stripe_customer_id,return_url:originOf(req)+'/'});return json({url:p.url});
+  if(!env.STRIPE_RESTRICTED_KEY)return json({error:'Billing portal is awaiting Stripe account activation'},503);
+  const p=await stripe(env,'billing_portal/sessions',{customer:profile.stripe_customer_id,return_url:originOf(req)+'/account/'});return json({url:p.url});
 }
 async function events(req,env){
   if(!env.DATABASE_URL)return json({accepted:true},202);
@@ -127,16 +118,25 @@ async function webhook(req,env){
   if(event.type==='customer.subscription.created'||event.type==='customer.subscription.updated'||event.type==='customer.subscription.deleted')await syncSubscription(obj,env);
   return json({received:true});
 }
+async function support(req,env){
+  if(req.method!=='POST')return json({error:'Method not allowed'},405);
+  const x=await body(req),email=String(x.email||'').trim().slice(0,320),message=String(x.message||'').trim().slice(0,5000),subject=String(x.subject||'General').trim().slice(0,120);
+  if(!email.includes('@')||message.length<10)return json({error:'Please provide a valid email and a little more detail.'},400);
+  const auth=await authSession(req,env),sql=db(env);
+  await sql`insert into support_requests (user_id,email,subject,message,status,created_at) values (${auth?.user?.id||null}::uuid,${email},${subject},${message},'open',now())`;
+  return json({ok:true},201);
+}
 async function api(req,env,url){
   if(url.pathname.startsWith('/api/auth/'))return authProxy(req,env,url);
   if(url.pathname==='/api/health')return json({ok:true,configured:configured(env),backend:'neon'});
-  if(url.pathname==='/api/ready'){const c=configured(env);let database=false;if(c.data)try{const sql=db(env);const rows=await sql`select 1 as ok`;database=rows?.[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon'})}
-  if(url.pathname==='/api/config'){const c=configured(env);return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEmail:env.SUPPORT_EMAIL||''})}
+  if(url.pathname==='/api/ready'){const c=configured(env);let database=false;if(c.data)try{const sql=db(env);const rows=await sql`select 1 as ok`;database=rows?.[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout&&c.webhook,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon'})}
+  if(url.pathname==='/api/config'){const c=configured(env);return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEnabled:c.data})}
   if(url.pathname==='/api/me'&&req.method==='GET')return me(req,env);
   if(url.pathname==='/api/preferences'&&(req.method==='GET'||req.method==='PUT'))return preferences(req,env);
   if(url.pathname==='/api/checkout'&&req.method==='POST')return checkout(req,env);
   if(url.pathname==='/api/portal'&&req.method==='POST')return portal(req,env);
   if(url.pathname==='/api/events'&&req.method==='POST')return events(req,env);
+  if(url.pathname==='/api/support'&&req.method==='POST')return support(req,env);
   if(url.pathname==='/api/stripe/webhook'&&req.method==='POST')return webhook(req,env);
   return json({error:'Not found'},404);
 }
