@@ -1,0 +1,57 @@
+name: Verify Production
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - 'api/**'
+      - 'index.html'
+      - 'account.html'
+      - 'legal/**'
+      - '.github/workflows/verify-production.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-neon-origin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP: https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech
+    steps:
+      - name: Backend readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          READY="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/api/ready")"
+          echo "$READY"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok||!x.auth||!x.database||!x.checkout||!x.webhook||x.backend!=="neon-function") process.exit(1)' "$READY"
+      - name: Auth transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl --silent --output /tmp/session.json --write-out '%{http_code}' --retry 4 --retry-all-errors "$APP/api/auth/get-session")"
+          test "$STATUS" = "200"
+      - name: Homepage and room
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/" | grep -q 'Afterlight'
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/rooftop/" | grep -q 'Nobody wants to go in'
+      - name: Audio delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/audio/rooftop/1.wav" -o /tmp/rooftop.wav
+          test "$(wc -c < /tmp/rooftop.wav)" -gt 500000
+          test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
+      - name: Support endpoint validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl --silent --output /tmp/support.json --write-out '%{http_code}' -X POST "$APP/api/support" -H 'Content-Type: application/json' --data '{"email":"invalid","message":"short"}')"
+          test "$STATUS" = "400"
+          grep -q 'valid email' /tmp/support.json
