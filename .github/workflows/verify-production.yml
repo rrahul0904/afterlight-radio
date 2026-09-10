@@ -16,31 +16,44 @@ permissions:
   contents: read
 
 jobs:
-  verify-neon-origin:
+  verify-production:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      APP: https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech
+      BACKEND: https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech
+      APP: https://afterlight-radio.vercel.app
     steps:
       - name: Backend readiness
         shell: bash
         run: |
           set -euo pipefail
-          READY="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/api/ready")"
+          READY="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$BACKEND/api/ready")"
           echo "$READY"
           node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok||!x.auth||!x.database||!x.checkout||!x.webhook||x.backend!=="neon-function") process.exit(1)' "$READY"
+
       - name: Auth transport
         shell: bash
         run: |
           set -euo pipefail
-          STATUS="$(curl --silent --output /tmp/session.json --write-out '%{http_code}' --retry 4 --retry-all-errors "$APP/api/auth/get-session")"
+          STATUS="$(curl --silent --output /tmp/session.json --write-out '%{http_code}' --retry 4 --retry-all-errors "$BACKEND/api/auth/get-session" -H "X-Afterlight-Origin: $APP")"
           test "$STATUS" = "200"
+
+      - name: Vercel API proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEALTH="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/api/health")"
+          echo "$HEALTH"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok) process.exit(1)' "$HEALTH"
+
       - name: Homepage and room
         shell: bash
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/" | grep -q 'Afterlight'
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/rooftop/" | grep -q 'Nobody wants to go in'
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account/" | grep -q 'Your Afterlight'
+
       - name: Audio delivery
         shell: bash
         run: |
@@ -48,10 +61,11 @@ jobs:
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/audio/rooftop/1.wav" -o /tmp/rooftop.wav
           test "$(wc -c < /tmp/rooftop.wav)" -gt 500000
           test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
+
       - name: Support endpoint validation
         shell: bash
         run: |
           set -euo pipefail
-          STATUS="$(curl --silent --output /tmp/support.json --write-out '%{http_code}' -X POST "$APP/api/support" -H 'Content-Type: application/json' --data '{"email":"invalid","message":"short"}')"
+          STATUS="$(curl --silent --output /tmp/support.json --write-out '%{http_code}' -X POST "$BACKEND/api/support" -H "X-Afterlight-Origin: $APP" -H 'Content-Type: application/json' --data '{"email":"invalid","message":"short"}')"
           test "$STATUS" = "400"
           grep -q 'valid email' /tmp/support.json
