@@ -6,9 +6,13 @@ const root=process.cwd(),out=path.join(root,'public'),slugs=audioRoomSlugs;
 const improveContrast=html=>html
   .replaceAll('#756b5f','#675e53')
   .replaceAll('#766d61','#675e53');
+const injectRuntime=html=>html.replace('</body>','<script src="/runtime-enhancements.js"></script>\n</body>');
 await rm(out,{recursive:true,force:true});
 await mkdir(out,{recursive:true});
-const html=await readFile(path.join(root,'index.html'),'utf8');
+const sourceHtml=await readFile(path.join(root,'index.html'),'utf8');
+const html=injectRuntime(sourceHtml);
+const runtimeEnhancements=await readFile(path.join(root,'scripts','runtime-enhancements.js'),'utf8');
+await writeFile(path.join(out,'runtime-enhancements.js'),runtimeEnhancements);
 await writeFile(path.join(out,'index.html'),html);
 
 for(const slug of slugs){
@@ -39,4 +43,4 @@ await writeFile(path.join(out,'_headers'),`/*
 
 const count=await generateAudio(out);
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
-console.log(`Built ${slugs.length} room routes, account portal, 3 legal pages and ${count} audio files (sample ${sample.size} bytes)`);
+console.log(`Built ${slugs.length} room routes, Media Session runtime, account portal, 3 legal pages and ${count} audio files (sample ${sample.size} bytes)`);
