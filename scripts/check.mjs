@@ -65,6 +65,15 @@ for(const needle of ['references neon_auth."user"(id)','user_preferences','subsc
 const account=await readFile(path.join(root,'account.html'),'utf8');
 for(const needle of ['/api/me','/api/portal','/api/auth/sign-in/email','Saved places','Manage billing'])if(!account.includes(needle))throw new Error('Account portal missing: '+needle);
 const support=await readFile(path.join(root,'legal/support.html'),'utf8');
-for(const needle of ['/api/support','supportForm','Received. Your support request has been saved.'])if(!support.includes(needle))throw new Error('Support surface missing: '+needle);
+for(const needle of ['/api/support','supportForm','Subscription cancellation','Received. Your support request has been saved.'])if(!support.includes(needle))throw new Error('Support surface missing: '+needle);
+const privacy=await readFile(path.join(root,'legal/privacy.html'),'utf8');
+for(const needle of ['Vercel','Neon','Stripe'])if(!privacy.includes(needle))throw new Error('Privacy processor disclosure missing: '+needle);
+if(privacy.includes('Supabase'))throw new Error('Stale Supabase processor remains in privacy notice');
+const terms=await readFile(path.join(root,'legal/terms.html'),'utf8');
+if(!terms.includes('Afterlight Support')||!terms.includes('Until that activation is complete'))throw new Error('Terms must describe billing fallback accurately');
+for(const page of ['privacy','terms','support','account']){
+  const built=await readFile(path.join(pub,page,'index.html'),'utf8');
+  if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
+}
 
-console.log('PASS: 12 routes, account portal, support intake, 36 audio files, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, legal pages');
+console.log('PASS: 12 routes, account portal, support intake, 36 audio files, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
