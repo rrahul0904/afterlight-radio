@@ -8,7 +8,12 @@ on:
       - 'index.html'
       - 'account.html'
       - 'legal/**'
+      - 'scripts/build.mjs'
+      - 'scripts/runtime-enhancements.js'
+      - 'scripts/account-enhancements.js'
+      - 'scripts/test-server.mjs'
       - 'scripts/browser-smoke.mjs'
+      - 'package.json'
       - '.github/workflows/browser-matrix.yml'
 
 permissions:
@@ -19,15 +24,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      BASE_URL: https://afterlight-radio.vercel.app
+      BASE_URL: http://127.0.0.1:4173
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install Playwright
+      - name: Install app and Playwright
         run: |
+          npm install
           npm install --no-save playwright@1.63.0
           npx playwright install --with-deps chromium firefox webkit
-      - name: Exercise production browsers
+      - name: Build current revision
+        run: npm run build
+      - name: Start deterministic test server
+        run: |
+          node scripts/test-server.mjs >/tmp/afterlight-test-server.log 2>&1 &
+          for i in {1..20}; do curl -fsS http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/afterlight-test-server.log
+          exit 1
+      - name: Exercise current-build browsers
         run: node scripts/browser-smoke.mjs
