@@ -8,6 +8,8 @@ on:
       - 'account.html'
       - 'legal/**'
       - 'scripts/accessibility-smoke.mjs'
+      - 'scripts/runtime-enhancements.js'
+      - 'scripts/account-enhancements.js'
       - '.github/workflows/accessibility.yml'
       - 'scripts/build.mjs'
   workflow_dispatch:
