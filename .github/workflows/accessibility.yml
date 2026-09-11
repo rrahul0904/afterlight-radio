@@ -1,0 +1,35 @@
+name: Accessibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'account.html'
+      - 'legal/**'
+      - 'scripts/accessibility-smoke.mjs'
+      - '.github/workflows/accessibility.yml'
+      - 'scripts/build.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BASE_URL: https://afterlight-radio.vercel.app
+
+jobs:
+  axe-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser audit dependencies
+        run: |
+          npm install --no-save playwright@1.63.0 axe-core@4.10.3
+          npx playwright install --with-deps chromium
+      - name: Audit production accessibility
+        run: node scripts/accessibility-smoke.mjs
