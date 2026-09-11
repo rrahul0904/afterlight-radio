@@ -34,6 +34,22 @@
       try{navigator.mediaSession.setActionHandler(action,handler)}catch{}
     }
   }
+
+  const billingButton=document.getElementById('manageBilling');
+  if(billingButton){
+    const originalBillingAction=billingButton.onclick;
+    billingButton.onclick=()=>{
+      if(apiConfig?.billingEnabled&&apiConfig?.portalEnabled===false){
+        location.assign('/support/?topic='+encodeURIComponent('Subscription cancellation'));
+        return;
+      }
+      return originalBillingAction?.();
+    };
+    loadApiConfig().then(()=>{
+      if(apiConfig?.billingEnabled&&apiConfig?.portalEnabled===false)billingButton.textContent='Billing support';
+    }).catch(()=>{});
+  }
+
   const trackNode=document.getElementById('track');
   if(trackNode)new MutationObserver(updateMediaMetadata).observe(trackNode,{childList:true,subtree:true,characterData:true});
   audio.addEventListener('loadedmetadata',()=>{updateMediaMetadata();updatePosition()});
