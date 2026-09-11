@@ -16,10 +16,10 @@ permissions:
   contents: read
 
 env:
-  BASE_URL: https://afterlight-radio.vercel.app
+  BASE_URL: http://127.0.0.1:4173
 
 jobs:
-  axe-production:
+  axe-built-artifact:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -27,9 +27,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install browser audit dependencies
+      - name: Install dependencies and Chromium
         run: |
+          npm install
           npm install --no-save playwright@1.63.0 axe-core@4.10.3
           npx playwright install --with-deps chromium
-      - name: Audit production accessibility
+      - name: Build production artifact
+        run: npm run build
+      - name: Serve production artifact
+        run: |
+          python3 -m http.server 4173 -d public >/tmp/afterlight-http.log 2>&1 &
+          for i in {1..20}; do curl -fsS http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/afterlight-http.log
+          exit 1
+      - name: Audit accessibility
         run: node scripts/accessibility-smoke.mjs
