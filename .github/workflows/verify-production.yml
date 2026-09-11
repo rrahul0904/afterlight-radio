@@ -10,6 +10,10 @@ on:
       - 'index.html'
       - 'account.html'
       - 'legal/**'
+      - 'scripts/build.mjs'
+      - 'scripts/runtime-enhancements.js'
+      - 'scripts/account-enhancements.js'
+      - 'vercel.json'
       - '.github/workflows/verify-production.yml'
 
 permissions:
@@ -46,7 +50,7 @@ jobs:
           echo "$HEALTH"
           node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok) process.exit(1)' "$HEALTH"
 
-      - name: Homepage and room
+      - name: Homepage, room and account
         shell: bash
         run: |
           set -euo pipefail
@@ -56,6 +60,34 @@ jobs:
           grep -q 'Nobody wants to go in' /tmp/rooftop.html
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account/" -o /tmp/account.html
           grep -q 'Your Afterlight' /tmp/account.html
+
+      - name: Current source is actually deployed
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/privacy/" -o /tmp/privacy.html
+          grep -q 'Vercel for web hosting and delivery' /tmp/privacy.html
+          grep -q 'Neon for authentication' /tmp/privacy.html
+          if grep -q 'Supabase for authentication' /tmp/privacy.html; then echo 'Production privacy page is stale'; exit 1; fi
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/terms/" -o /tmp/terms.html
+          grep -q 'Until that activation is complete' /tmp/terms.html
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/support/" -o /tmp/support.html
+          grep -q 'Subscription cancellation' /tmp/support.html
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/runtime-enhancements.js" -o /tmp/runtime.js
+          grep -q 'mediaSession' /tmp/runtime.js
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account-enhancements.js" -o /tmp/account-runtime.js
+          grep -q 'Billing support' /tmp/account-runtime.js
+
+      - name: Production security headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 4 --retry-all-errors -D /tmp/headers.txt -o /dev/null "$APP/"
+          grep -qi '^x-frame-options: DENY' /tmp/headers.txt
+          grep -qi '^x-content-type-options: nosniff' /tmp/headers.txt
+          grep -qi '^referrer-policy: strict-origin-when-cross-origin' /tmp/headers.txt
+          grep -qi '^permissions-policy: camera=(), microphone=(), geolocation=()' /tmp/headers.txt
+          grep -qi '^cross-origin-opener-policy: same-origin' /tmp/headers.txt
 
       - name: Audio delivery
         shell: bash
