@@ -27,8 +27,11 @@ html{background:#eee6d8;color:#201c17;font-family:Inter,system-ui,sans-serif}bod
 <h2>Account access</h2>
 <p>Use the Account area to create an account or sign in. Your saved rooms and listening preferences sync after authentication.</p>
 <script>
-const f=document.getElementById('supportForm'),s=document.getElementById('status');
-f.onsubmit=async e=>{e.preventDefault();s.textContent='Sending…';try{const r=await fetch('/api/support',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),subject:document.getElementById('subject').value,message:document.getElementById('message').value.trim()})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Could not send request');f.reset();s.textContent='Received. Your support request has been saved.'}catch(err){s.textContent=err.message}};
+const f=document.getElementById('supportForm'),s=document.getElementById('status'),subject=document.getElementById('subject'),message=document.getElementById('message');
+const requestedTopic=new URLSearchParams(location.search).get('topic');
+if(requestedTopic&&[...subject.options].some(o=>o.value===requestedTopic))subject.value=requestedTopic;
+if(subject.value==='Subscription cancellation')message.placeholder='Tell us that you want to cancel and whether you want cancellation at the end of the current billing period. Never include card numbers.';
+f.onsubmit=async e=>{e.preventDefault();s.textContent='Sending…';try{const r=await fetch('/api/support',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),subject:subject.value,message:message.value.trim()})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Could not send request');f.reset();if(requestedTopic&&[...subject.options].some(o=>o.value===requestedTopic))subject.value=requestedTopic;s.textContent='Received. Your support request has been saved.'}catch(err){s.textContent=err.message}};
 </script>
 <hr><p class="fine">Last updated September 11, 2026 · <a href="/">Return to Afterlight</a></p>
 </main></body></html>
