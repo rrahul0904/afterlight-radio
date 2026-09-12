@@ -23,6 +23,18 @@
       });
     }catch{}
   };
+  const isOutputSinkError=()=>{
+    const message=audio.error?.message||'';
+    return !audio.paused&&audio.readyState>=3&&audio.currentTime>0&&/(MediaSink|audio output|AudioSink)/i.test(message);
+  };
+  const preserveOutputPlayback=()=>{
+    if(!isOutputSinkError())return false;
+    playing=true;
+    syncPlay();
+    setStatus('PLAYING · CHECK AUDIO OUTPUT');
+    if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
+    return true;
+  };
   if('mediaSession' in navigator){
     const actions={
       play:()=>{if(!playing)toggle()},
@@ -55,12 +67,25 @@
   audio.addEventListener('loadedmetadata',()=>{updateMediaMetadata();updatePosition()});
   audio.addEventListener('durationchange',updatePosition);
   audio.addEventListener('timeupdate',updatePosition);
+  audio.addEventListener('playing',()=>{
+    playing=true;
+    syncPlay();
+    updateMediaMetadata();
+    if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
+  });
   audio.addEventListener('play',()=>{updateMediaMetadata();if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing'});
   audio.addEventListener('pause',()=>{if('mediaSession' in navigator)navigator.mediaSession.playbackState='paused'});
   audio.addEventListener('waiting',()=>setStatus('BUFFERING · KEEP THIS TAB OPEN'));
   audio.addEventListener('stalled',()=>setStatus('NETWORK SLOW · RETRYING AUDIO'));
   audio.addEventListener('canplay',()=>{if(!playing)setStatus('SOUND READY · TAP PLAY')});
   audio.addEventListener('error',()=>{
+    if(isOutputSinkError()){
+      preserveOutputPlayback();
+      setTimeout(preserveOutputPlayback,250);
+      trackEvent('audio_output_error',{room:currentRoom()?.slug||null,track:t,code:audio.error?.code||null,message:audio.error?.message||''});
+      toast('Playback is running · check audio output');
+      return;
+    }
     playing=false;
     syncPlay();
     setStatus('AUDIO UNAVAILABLE · TRY AGAIN');
