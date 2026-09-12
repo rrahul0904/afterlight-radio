@@ -1,0 +1,40 @@
+name: Browser Neon Continuity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/browser-neon-continuity.yml'
+      - 'scripts/browser-smoke.mjs'
+      - 'functions/afterlight-web.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE_URL: https://br-proud-breeze-axhwv7rx-afterlightweb.compute.c-4.us-east-2.aws.neon.tech
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright
+        run: |
+          npm install
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Exercise deployed browsers
+        run: node scripts/browser-smoke.mjs
+      - name: Upload deployed visual review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neon-continuity-browser-visual-review
+          path: test-artifacts/screenshots
+          if-no-files-found: warn
+          retention-days: 7
