@@ -10,10 +10,12 @@ const injectScript=(html,src)=>html.replace('</body>',`<script src="${src}"></sc
 await rm(out,{recursive:true,force:true});
 await mkdir(out,{recursive:true});
 const sourceHtml=await readFile(path.join(root,'index.html'),'utf8');
-const html=injectScript(sourceHtml,'/runtime-enhancements.js');
+const html=injectScript(injectScript(sourceHtml,'/runtime-enhancements.js'),'/mobile-visual-polish.js');
 const runtimeEnhancements=await readFile(path.join(root,'scripts','runtime-enhancements.js'),'utf8');
+const mobileVisualPolish=await readFile(path.join(root,'scripts','mobile-visual-polish.js'),'utf8');
 const accountEnhancements=await readFile(path.join(root,'scripts','account-enhancements.js'),'utf8');
 await writeFile(path.join(out,'runtime-enhancements.js'),runtimeEnhancements);
+await writeFile(path.join(out,'mobile-visual-polish.js'),mobileVisualPolish);
 await writeFile(path.join(out,'account-enhancements.js'),accountEnhancements);
 await writeFile(path.join(out,'index.html'),html);
 
