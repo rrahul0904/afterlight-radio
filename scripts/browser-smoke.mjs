@@ -36,7 +36,13 @@ async function playbackState(page){
 async function sceneState(page){
   return page.evaluate(()=>{
     const host=document.querySelector('#paintedScene'),svg=host?.querySelector('svg');
-    return {room:host?.dataset.room||null,label:svg?.getAttribute('aria-label')||null,width:svg?.getBoundingClientRect().width||0,height:svg?.getBoundingClientRect().height||0};
+    return {
+      room:host?.dataset.room||null,
+      label:svg?.getAttribute('aria-label')||null,
+      preserveAspectRatio:svg?.getAttribute('preserveAspectRatio')||null,
+      width:svg?.getBoundingClientRect().width||0,
+      height:svg?.getBoundingClientRect().height||0
+    };
   });
 }
 
@@ -61,8 +67,15 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#paintedScene svg').waitFor({state:'visible',timeout:8000});
     let scene=await sceneState(page);
     if(scene.room!=='rooftop'||scene.label!=='Rooftop at sundown'||scene.width<300||scene.height<300)throw new Error('rooftop artwork failed '+JSON.stringify(scene));
+    if(name.includes('mobile')&&scene.preserveAspectRatio!=='xMidYMid slice')throw new Error('mobile artwork is not full-bleed '+JSON.stringify(scene));
     await page.screenshot({path:`${shotDir}/${name}-rooftop.png`,fullPage:true});
-    await page.locator('#accountBtn').click();
+    const account=page.locator('#accountBtn');
+    await account.waitFor({state:'visible',timeout:5000});
+    if(name.includes('mobile')){
+      const box=await account.boundingBox();
+      if(!box||box.width<40||box.height<40)throw new Error('mobile account touch target is too small '+JSON.stringify(box));
+    }
+    await account.click();
     await page.locator('#googleAuthMain').waitFor({state:'visible',timeout:5000});
     if(!(await page.locator('#googleAuthMain').innerText()).includes('Continue with Google'))throw new Error('main Google auth button copy missing');
     await page.screenshot({path:`${shotDir}/${name}-auth-modal.png`,fullPage:true});
@@ -73,6 +86,7 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#paintedScene svg').waitFor({state:'visible',timeout:8000});
     scene=await sceneState(page);
     if(scene.room!=='window'||scene.label!=='Rainy window seat')throw new Error('window artwork failed '+JSON.stringify(scene));
+    if(name.includes('mobile')&&scene.preserveAspectRatio!=='xMidYMid slice')throw new Error('window mobile artwork is not full-bleed '+JSON.stringify(scene));
     await page.screenshot({path:`${shotDir}/${name}-window.png`,fullPage:true});
 
     r=await page.goto(base+'/rooftop/',{waitUntil:'domcontentloaded',timeout:20000});
