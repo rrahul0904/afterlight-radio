@@ -3,11 +3,13 @@ import path from 'node:path';
 
 const root=process.cwd();
 const runtime=await readFile(path.join(root,'scripts','runtime-enhancements.js'),'utf8');
+const mobilePolish=await readFile(path.join(root,'scripts','mobile-visual-polish.js'),'utf8');
 const account=await readFile(path.join(root,'scripts','account-enhancements.js'),'utf8');
 const audioSource=await readFile(path.join(root,'scripts','audio-library.mjs'),'utf8');
 
 // Compile injected browser scripts before a release can move forward.
 new Function(runtime);
+new Function(mobilePolish);
 new Function(account);
 
 for(const needle of [
@@ -32,6 +34,9 @@ for(const needle of [
 ]){
   if(!runtime.includes(needle))throw new Error('Main product quality surface missing: '+needle);
 }
+for(const needle of ['#accountBtn','display:inline-flex!important','xMidYMid slice','max-height:calc(100dvh - 24px)','MutationObserver']){
+  if(!mobilePolish.includes(needle))throw new Error('Mobile product surface missing: '+needle);
+}
 for(const needle of ['/api/auth/sign-in/social',"provider:'google'",'Continue with Google','googleAuthAccount']){
   if(!account.includes(needle))throw new Error('Account Google auth surface missing: '+needle);
 }
@@ -54,4 +59,4 @@ if(rms<0.025)throw new Error('Audio is too quiet; RMS='+rms.toFixed(4));
 if(peak<0.30)throw new Error('Audio peak is too low; peak='+peak.toFixed(4));
 if(peak>0.999)throw new Error('Audio is clipping; peak='+peak.toFixed(4));
 
-console.log(`PASS: Google OAuth is exposed on sign-up/sign-in, 12 distinct illustrated scenes are wired, and generated audio is ${duration.toFixed(1)}s @ ${sampleRate}Hz with RMS ${rms.toFixed(3)} / peak ${peak.toFixed(3)}`);
+console.log(`PASS: Google OAuth is exposed on sign-up/sign-in, mobile account access and full-bleed scene framing are guarded, 12 distinct illustrated scenes are wired, and generated audio is ${duration.toFixed(1)}s @ ${sampleRate}Hz with RMS ${rms.toFixed(3)} / peak ${peak.toFixed(3)}`);
