@@ -12,6 +12,7 @@ on:
       - 'legal/**'
       - 'scripts/build.mjs'
       - 'scripts/runtime-enhancements.js'
+      - 'scripts/mobile-visual-polish.js'
       - 'scripts/account-enhancements.js'
       - 'scripts/audio-library.mjs'
       - 'scripts/product-quality-check.mjs'
@@ -68,8 +69,10 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/" -o /tmp/home.html
           grep -q 'Afterlight' /tmp/home.html
+          grep -q '/mobile-visual-polish.js' /tmp/home.html
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/rooftop/" -o /tmp/rooftop.html
           grep -q 'Nobody wants to go in' /tmp/rooftop.html
+          grep -q '/mobile-visual-polish.js' /tmp/rooftop.html
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account/" -o /tmp/account.html
           grep -q 'Your Afterlight' /tmp/account.html
 
@@ -80,6 +83,7 @@ jobs:
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/privacy/" -o /tmp/privacy.html
           grep -q 'Vercel for web hosting and delivery' /tmp/privacy.html
           grep -q 'Neon for authentication' /tmp/privacy.html
+          grep -q 'Google when you choose Google OAuth' /tmp/privacy.html
           if grep -q 'Supabase for authentication' /tmp/privacy.html; then echo 'Production privacy page is stale'; exit 1; fi
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/terms/" -o /tmp/terms.html
           grep -q 'Until that activation is complete' /tmp/terms.html
@@ -90,6 +94,9 @@ jobs:
           grep -q 'googleAuthMain' /tmp/runtime.js
           grep -q 'paintedScene' /tmp/runtime.js
           grep -q 'Rooftop at sundown' /tmp/runtime.js
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/mobile-visual-polish.js" -o /tmp/mobile.js
+          grep -q 'display:inline-flex!important' /tmp/mobile.js
+          grep -q 'xMidYMid slice' /tmp/mobile.js
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account-enhancements.js" -o /tmp/account-runtime.js
           grep -q 'Billing support' /tmp/account-runtime.js
           grep -q 'googleAuthAccount' /tmp/account-runtime.js
