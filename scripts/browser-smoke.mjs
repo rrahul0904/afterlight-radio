@@ -59,6 +59,15 @@ for(const [name,type,contextOptions] of targets){
       throw new Error('Play control did not enter playing state: '+JSON.stringify(await playbackState(page)));
     }
 
+    if(name==='firefox-desktop'){
+      await page.waitForTimeout(12000);
+      const sustained=await playbackState(page);
+      if(!sustained.bodyPlaying||sustained.paused)throw new Error('Firefox did not sustain playback: '+JSON.stringify(sustained));
+      if(/MediaSink|audio output|AudioSink/i.test(sustained.error?.message||'')&&!/CHECK AUDIO OUTPUT/.test(sustained.status)){
+        throw new Error('Firefox output-sink error was not surfaced correctly: '+JSON.stringify(sustained));
+      }
+    }
+
     r=await page.goto(base+'/account/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('account status '+r?.status());
     if((await page.title())!=='Your Afterlight')throw new Error('account title mismatch: '+await page.title());
