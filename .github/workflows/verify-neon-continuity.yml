@@ -1,0 +1,103 @@
+name: Verify Neon Continuity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/afterlight-web.mjs'
+      - 'functions/afterlight-healthcheck.mjs'
+      - '.github/workflows/verify-neon-continuity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      APP: https://br-proud-breeze-axhwv7rx-afterlightweb.compute.c-4.us-east-2.aws.neon.tech
+      NEON_AUTH_ORIGIN: https://ep-bitter-cake-axu59msq.neonauth.c-4.us-east-2.aws.neon.tech
+    steps:
+      - name: Homepage and room release
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/" -o /tmp/home.html
+          grep -q 'Afterlight' /tmp/home.html
+          grep -q '/runtime-enhancements.js' /tmp/home.html
+          grep -q '/mobile-visual-polish.js' /tmp/home.html
+          grep -q '/audio-continuity.js' /tmp/home.html
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/rooftop/" -o /tmp/room.html
+          grep -q 'Nobody wants to go in' /tmp/room.html
+
+      - name: Visual and auth runtime markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/runtime-enhancements.js" -o /tmp/runtime.js
+          grep -q 'googleAuthMain' /tmp/runtime.js
+          grep -q 'Continue with Google' /tmp/runtime.js
+          grep -q 'paintedScene' /tmp/runtime.js
+          grep -q 'Rooftop at sundown' /tmp/runtime.js
+          grep -q 'Rainy window seat' /tmp/runtime.js
+          grep -q 'Late-night pizzeria' /tmp/runtime.js
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/mobile-visual-polish.js" -o /tmp/mobile.js
+          grep -q 'display:inline-flex!important' /tmp/mobile.js
+          grep -q 'xMidYMid slice' /tmp/mobile.js
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/audio-continuity.js" -o /tmp/audio-runtime.js
+          grep -q 'ended' /tmp/audio-runtime.js
+
+      - name: Account and Google OAuth
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account/" -o /tmp/account.html
+          grep -q 'Your Afterlight' /tmp/account.html
+          grep -q '/account-enhancements.js' /tmp/account.html
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account-enhancements.js" -o /tmp/account-runtime.js
+          grep -q 'googleAuthAccount' /tmp/account-runtime.js
+          grep -q 'Continue with Google' /tmp/account-runtime.js
+          STATUS="$(curl --silent --show-error --output /tmp/google.json --write-out '%{http_code}' -X POST "$APP/api/auth/sign-in/social" -H "Origin: $APP" -H 'Content-Type: application/json' -H 'Accept: application/json' --data '{"provider":"google","callbackURL":"/account/"}')"
+          test "$STATUS" -ge 200 -a "$STATUS" -lt 300
+          node -e 'const x=JSON.parse(require("fs").readFileSync("/tmp/google.json","utf8")); const u=new URL(x.url||""); if(x.redirect!==true||u.origin!==process.env.NEON_AUTH_ORIGIN||!u.pathname.includes("/afterlight/auth/sign-in/social/init")||!u.searchParams.get("token")) process.exit(1)'
+
+      - name: Backend proxy and security headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEALTH="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/api/health")"
+          echo "$HEALTH"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok||x.backend!=="neon-function") process.exit(1)' "$HEALTH"
+          curl --fail --silent --show-error --retry 4 --retry-all-errors -D /tmp/headers.txt -o /dev/null "$APP/"
+          grep -qi '^x-frame-options: DENY' /tmp/headers.txt
+          grep -qi '^x-content-type-options: nosniff' /tmp/headers.txt
+          grep -qi '^referrer-policy: strict-origin-when-cross-origin' /tmp/headers.txt
+          grep -qi '^permissions-policy: camera=(), microphone=(), geolocation=()' /tmp/headers.txt
+          grep -qi '^cross-origin-opener-policy: same-origin' /tmp/headers.txt
+
+      - name: Generated audio delivery and loudness
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 --retry-all-errors --max-time 60 "$APP/audio/rooftop/1.wav" -o /tmp/rooftop.wav
+          test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
+          test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
+          node - <<'NODE'
+          const fs=require('fs');const b=fs.readFileSync('/tmp/rooftop.wav');
+          if(b.subarray(8,12).toString()!=='WAVE')process.exit(1);
+          const channels=b.readUInt16LE(22),rate=b.readUInt32LE(24),bits=b.readUInt16LE(34),bytes=b.readUInt32LE(40);
+          const duration=bytes/(rate*channels*(bits/8));let sum=0,peak=0,n=0;
+          for(let p=44;p+1<b.length;p+=16){const a=Math.abs(b.readInt16LE(p))/32768;sum+=a*a;peak=Math.max(peak,a);n++}
+          const rms=Math.sqrt(sum/n);console.log({channels,rate,bits,duration,rms,peak,bytes:b.length});
+          if(channels!==1||rate!==32000||bits!==16||duration<22||rms<.025||peak<.30||peak>.999)process.exit(1);
+          NODE
+
+      - name: Support validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl --silent --output /tmp/support.json --write-out '%{http_code}' -X POST "$APP/api/support" -H "Origin: $APP" -H 'Content-Type: application/json' --data '{"email":"invalid","message":"short"}')"
+          test "$STATUS" = "400"
+          grep -q 'valid email' /tmp/support.json
