@@ -13,6 +13,23 @@ function expectedSignedOutNoise(message){
   return /failed to load resource:.*\b401\b/i.test(message)||/\/api\/me due to access control checks/i.test(message);
 }
 
+async function playbackState(page){
+  return page.evaluate(()=>({
+    bodyPlaying:document.body.classList.contains('is-playing'),
+    status:document.querySelector('#status')?.textContent||'',
+    toast:document.querySelector('#toast')?.textContent||'',
+    paused:audio.paused,
+    ended:audio.ended,
+    currentTime:audio.currentTime,
+    duration:Number.isFinite(audio.duration)?audio.duration:null,
+    readyState:audio.readyState,
+    networkState:audio.networkState,
+    currentSrc:audio.currentSrc,
+    error:audio.error?{code:audio.error.code,message:audio.error.message}:null,
+    wavSupport:audio.canPlayType('audio/wav')
+  }));
+}
+
 let failed=false;
 for(const [name,type,contextOptions] of targets){
   const browser=await type.launch({headless:true});
@@ -33,10 +50,14 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#play').waitFor({state:'visible',timeout:8000});
     const wav=await page.evaluate(async()=>{const r=await fetch('/audio/rooftop/1.wav',{method:'GET'});return {status:r.status,type:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength}});
     if(![200,206].includes(wav.status)||!/^audio\//i.test(wav.type||'')||wav.bytes<500000)throw new Error('WAV failed '+JSON.stringify(wav));
+    const support=await page.evaluate(()=>audio.canPlayType('audio/wav'));
+    if(!support)throw new Error('browser reports no WAV support');
     await page.locator('#play').click({timeout:8000});
-    await page.waitForTimeout(900);
-    const playing=await page.evaluate(()=>document.body.classList.contains('is-playing'));
-    if(!playing)throw new Error('Play control did not enter playing state');
+    try{
+      await page.waitForFunction(()=>document.body.classList.contains('is-playing')&&!audio.paused,{timeout:6000});
+    }catch{
+      throw new Error('Play control did not enter playing state: '+JSON.stringify(await playbackState(page)));
+    }
 
     r=await page.goto(base+'/account/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('account status '+r?.status());
