@@ -70,7 +70,7 @@ const privacy=await readFile(path.join(root,'legal/privacy.html'),'utf8');
 for(const needle of ['Vercel','Neon','Stripe'])if(!privacy.includes(needle))throw new Error('Privacy processor disclosure missing: '+needle);
 if(privacy.includes('Supabase'))throw new Error('Stale Supabase processor remains in privacy notice');
 const terms=await readFile(path.join(root,'legal/terms.html'),'utf8');
-if(!terms.includes('Afterlight Support')||!terms.includes('Until that activation is complete'))throw new Error('Terms must describe billing fallback accurately');
+for(const needle of ['Afterlight Support','When Stripe self-service billing is available','When self-service billing is unavailable','Subscription cancellation'])if(!terms.includes(needle))throw new Error('Terms must describe billing management and fallback accurately: '+needle);
 for(const page of ['privacy','terms','support','account']){
   const built=await readFile(path.join(pub,page,'index.html'),'utf8');
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
