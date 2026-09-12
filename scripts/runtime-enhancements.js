@@ -1,96 +1,93 @@
 (()=>{
   const setStatus=text=>{const el=document.getElementById('status');if(el)el.textContent=text};
   const currentRoom=()=>R[i];
+
+  /* Google OAuth — Neon Auth already has the shared Google provider configured. */
+  const googleMark=`<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.27c0-.71-.06-1.24-.2-1.79H12v3.26h5.37a4.58 4.58 0 0 1-1.99 3.01l-.02.11 2.89 2.24.2.02c1.82-1.68 2.9-4.15 2.9-6.85Z"/><path fill="#34A853" d="M12 21.8c2.61 0 4.8-.86 6.4-2.34l-3.05-2.37c-.82.55-1.92.94-3.35.94a5.82 5.82 0 0 1-5.51-4.02l-.1.01-3 2.32-.04.1A9.67 9.67 0 0 0 12 21.8Z"/><path fill="#FBBC05" d="M6.49 14.01A5.96 5.96 0 0 1 6.17 12c0-.7.12-1.38.3-2.01l-.01-.13-3.04-2.36-.1.05A9.78 9.78 0 0 0 2.33 12c0 1.6.38 3.12 1.03 4.45l3.13-2.44Z"/><path fill="#EA4335" d="M12 5.97c1.82 0 3.05.78 3.75 1.43l2.71-2.65C16.8 3.2 14.61 2.2 12 2.2a9.67 9.67 0 0 0-8.68 5.35l3.14 2.44A5.84 5.84 0 0 1 12 5.97Z"/></svg>`;
+  async function googleAuth(callbackURL){
+    const status=document.getElementById('loginStatus');
+    if(status)status.textContent='Opening Google…';
+    try{
+      const r=await fetch('/api/auth/sign-in/social',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({provider:'google',callbackURL:callbackURL||location.pathname||'/'})});
+      const data=await r.json().catch(()=>null);
+      if(!r.ok)throw new Error(data?.message||data?.error||'Google sign-in could not start');
+      if(!data?.url)throw new Error('Google sign-in did not return a redirect');
+      location.assign(data.url);
+    }catch(err){if(status)status.textContent=err.message;else alert(err.message)}
+  }
+  function installGoogleAuth(){
+    const form=document.getElementById('loginForm');
+    if(!form||document.getElementById('googleAuthMain'))return;
+    const btn=document.createElement('button');
+    btn.id='googleAuthMain';btn.type='button';btn.className='google-auth';
+    btn.innerHTML=`${googleMark}<span>Continue with Google</span>`;
+    btn.addEventListener('click',()=>googleAuth(location.pathname==='/'?'/rooftop/':location.pathname));
+    const sep=document.createElement('div');sep.className='auth-separator';sep.innerHTML='<span>or use email</span>';
+    form.prepend(sep);form.prepend(btn);
+  }
+
+  /* Original illustrated-room layer. Each room has its own composition, not a palette swap. */
+  const art={
+    rooftop:()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Rooftop at sundown"><defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#e8a57c"/><stop offset=".48" stop-color="#9a6f7d"/><stop offset="1" stop-color="#25222b"/></linearGradient><filter id="blur"><feGaussianBlur stdDeviation="28"/></filter></defs><rect width="1600" height="1000" fill="url(#bg)"/><circle cx="1210" cy="205" r="128" fill="#ffe2a4" opacity=".75" filter="url(#blur)"/><circle cx="1210" cy="205" r="86" fill="#ffd18a"/><path d="M0 560 160 510l80 36 170-105 115 74 175-84 190 105 140-52 180 82 180-67 230 72v190H0Z" fill="#34333d" opacity=".62"/><g fill="#17171d"><path d="M0 625h160v-95h95v95h135V490h110v135h128V550h170v75h120V458h125v167h185v-82h142v82h150v170H0Z"/><rect x="0" y="748" width="1600" height="252" fill="#2b211d"/></g><g fill="#f4c97f" opacity=".5"><rect x="54" y="565" width="8" height="8"/><rect x="80" y="565" width="8" height="8"/><rect x="439" y="525" width="8" height="8"/><rect x="958" y="493" width="9" height="9"/><rect x="1282" y="574" width="8" height="8"/></g><path d="M0 720h1600v10H0Zm0 66h1600v6H0Z" fill="#171311" opacity=".85"/><g transform="translate(1120 735)"><ellipse cx="115" cy="76" rx="150" ry="24" fill="#1f1714"/><rect x="108" y="76" width="14" height="148" fill="#191210"/><path d="M35 52h24l-4 42H39Z" fill="none" stroke="#ffe8c2" stroke-width="3" opacity=".8"/><path d="M157 48h24l-4 46h-16Z" fill="none" stroke="#ffe8c2" stroke-width="3" opacity=".7"/><path d="M40 76h14v14H40Zm122-3h14v17h-14Z" fill="#d88a50"/></g><g transform="translate(95 660)" fill="#17241d"><ellipse cx="50" cy="80" rx="60" ry="20" transform="rotate(-34 50 80)"/><ellipse cx="90" cy="45" rx="68" ry="21" transform="rotate(25 90 45)"/><ellipse cx="62" cy="15" rx="58" ry="19" transform="rotate(-24 62 15)"/><path d="M62 75h18v150H62Z" fill="#211916"/><path d="M25 190h90l-15 82H40Z" fill="#211916"/></g></svg>`,
+    window:()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Rainy window seat"><defs><linearGradient id="wbg" x2="0" y2="1"><stop stop-color="#71848e"/><stop offset="1" stop-color="#26343f"/><filter id="soft"><feGaussianBlur stdDeviation="11"/></filter></linearGradient></defs><rect width="1600" height="1000" fill="#172129"/><rect x="80" y="70" width="1110" height="700" rx="8" fill="url(#wbg)"/><g opacity=".45" filter="url(#soft)"><circle cx="260" cy="540" r="42" fill="#ffd37f"/><circle cx="580" cy="470" r="33" fill="#ffb067"/><circle cx="905" cy="580" r="48" fill="#f8d58a"/></g><g stroke="#dbe7ea" opacity=".35" stroke-width="3"><path d="m160 80-40 690m190-690-55 690m220-690-28 690m245-690-55 690m250-690-35 690m220-690-50 690"/></g><rect x="1190" y="0" width="410" height="1000" fill="#241c18"/><path d="M0 770h1600v230H0Z" fill="#30241e"/><path d="M1010 655h430l70 345H905Z" fill="#171515"/><ellipse cx="1240" cy="684" rx="150" ry="32" fill="#2b201b"/><path d="M1172 607h86l-9 81h-68Z" fill="#e3d2b5"/><path d="M1184 621h63v45h-58Z" fill="#7c4f32"/><path d="M1315 300h16v330h-16Z" fill="#161312"/><path d="M1240 310h165l-72 88h-70Z" fill="#d8a862"/><circle cx="1324" cy="406" r="55" fill="#e8bb72" opacity=".22"/></svg>`,
+    roma:()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Late-night pizzeria"><rect width="1600" height="1000" fill="#211918"/><rect x="0" y="0" width="1600" height="610" fill="#3b2220"/><path d="M0 610h1600v390H0Z" fill="#211b18"/><g fill="#efe0c8" opacity=".16"><path d="M0 120h1600v14H0M0 260h1600v14H0M0 400h1600v14H0M0 540h1600v14H0"/><path d="M180 0v610h14V0m300 0v610h14V0m300 0v610h14V0m300 0v610h14V0m300 0v610h14V0"/></g><rect x="170" y="120" width="460" height="350" fill="#111a1b" stroke="#c8a985" stroke-width="15"/><path d="M400 120v350M170 290h460" stroke="#c8a985" stroke-width="10"/><g fill="#d78b5a" opacity=".8"><circle cx="255" cy="330" r="12"/><circle cx="510" cy="230" r="10"/></g><path d="M880 150h480v170H880Z" fill="#efe4cf"/><text x="1120" y="250" text-anchor="middle" font-family="Georgia" font-size="72" fill="#9c342f">ROMA</text><path d="M80 700h570v300H80Z" fill="#762f2b"/><path d="M950 700h570v300H950Z" fill="#762f2b"/><path d="M650 780h300v26H650Z" fill="#c1a27e"/><path d="M790 806h20v194h-20Z" fill="#81684e"/><circle cx="748" cy="762" r="38" fill="#e6d1ab"/><path d="M721 746h54l-12 31h-30Z" fill="#bc5d3d"/></svg>`,
+    'long-way-home':()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Night drive home"><defs><linearGradient id="d" x2="0" y2="1"><stop stop-color="#24354c"/><stop offset=".6" stop-color="#151b27"/><stop offset="1" stop-color="#090b10"/></linearGradient></defs><rect width="1600" height="1000" fill="url(#d)"/><circle cx="1260" cy="150" r="82" fill="#e6e4cf" opacity=".7"/><path d="M0 460 270 350l220 120 230-170 240 150 220-130 420 165v200H0Z" fill="#18202a"/><path d="M555 1000 725 520h150l175 480Z" fill="#242932"/><path d="m780 1000 15-420h16l18 420Z" fill="#e4d59b" opacity=".62"/><g fill="#e2c37d" opacity=".6"><circle cx="250" cy="560" r="11"/><circle cx="340" cy="610" r="8"/><circle cx="1240" cy="545" r="10"/></g><path d="M0 865q210-70 420 0t420 0 420 0 340 0v135H0Z" fill="#08090d"/><path d="M0 830q210-90 420 0t420 0 420 0 340 0" fill="none" stroke="#454c59" stroke-width="18"/><path d="M80 810h150l30 58H40Z" fill="#0d1015"/><circle cx="89" cy="870" r="30" fill="#090a0d"/><circle cx="215" cy="870" r="30" fill="#090a0d"/></svg>`,
+    'two-hundred':()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Midnight gas station"><rect width="1600" height="1000" fill="#101625"/><circle cx="1280" cy="170" r="70" fill="#dce2d2" opacity=".55"/><g fill="#dce2d2" opacity=".55"><circle cx="180" cy="110" r="2"/><circle cx="520" cy="160" r="3"/><circle cx="920" cy="90" r="2"/></g><path d="M0 630h1600v370H0Z" fill="#171a20"/><path d="M160 280h1180v52H160Z" fill="#d8c9a4"/><path d="M190 332h1120v300H190Z" fill="#25272a"/><g fill="#f4dca1"><rect x="230" y="350" width="320" height="18"/><rect x="640" y="350" width="320" height="18"/><rect x="1040" y="350" width="220" height="18"/></g><g><rect x="380" y="490" width="130" height="250" rx="10" fill="#d7d2c6"/><rect x="1080" y="490" width="130" height="250" rx="10" fill="#d7d2c6"/><rect x="405" y="520" width="80" height="58" fill="#20252b"/><rect x="1105" y="520" width="80" height="58" fill="#20252b"/><path d="M370 650h-90v170m940-170h90v170" fill="none" stroke="#1b1f24" stroke-width="14"/></g><path d="M0 790h1600" stroke="#d9c67f" stroke-width="8" stroke-dasharray="120 70" opacity=".6"/></svg>`,
+    'one-more-log':()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Cabin fire"><rect width="1600" height="1000" fill="#170f0c"/><g stroke="#3b261d" stroke-width="36" opacity=".85"><path d="M0 90h1600M0 220h1600M0 350h1600M0 480h1600M0 610h1600"/></g><rect x="950" y="100" width="430" height="390" fill="#20303b" stroke="#6b4a32" stroke-width="24"/><path d="M1165 100v390M950 295h430" stroke="#6b4a32" stroke-width="15"/><g fill="#d8e5ea" opacity=".45"><circle cx="1020" cy="170" r="7"/><circle cx="1100" cy="240" r="8"/><circle cx="1260" cy="180" r="6"/></g><path d="M0 650h1600v350H0Z" fill="#241713"/><path d="M270 470h480v390H270Z" fill="#211713" stroke="#5b3b2b" stroke-width="26"/><path d="M340 540h340v250H340Z" fill="#100d0c"/><path d="M420 760q85-240 170 0-85 60-170 0Z" fill="#e66b35"/><path d="M460 760q50-170 105 0-50 40-105 0Z" fill="#ffd27b"/><g stroke="#4f3225" stroke-width="30" stroke-linecap="round"><path d="m360 805 260-85M390 710l245 90"/></g><path d="M940 760h360l90 240H850Z" fill="#2c1d18"/><ellipse cx="1120" cy="760" rx="180" ry="34" fill="#3a261e"/></svg>`,
+    friends:()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Courtyard with friends"><rect width="1600" height="1000" fill="#252f31"/><rect y="610" width="1600" height="390" fill="#35271f"/><path d="M0 0h280v650H0Zm1320 0h280v650h-280Z" fill="#6a5140"/><g fill="#f0c77f"><circle cx="290" cy="180" r="10"/><circle cx="430" cy="150" r="10"/><circle cx="580" cy="190" r="10"/><circle cx="740" cy="145" r="10"/><circle cx="905" cy="180" r="10"/><circle cx="1070" cy="150" r="10"/><circle cx="1230" cy="190" r="10"/></g><path d="M280 175q480-100 1040 5" fill="none" stroke="#57412f" stroke-width="5"/><g fill="#1d382d"><circle cx="160" cy="580" r="100"/><circle cx="1390" cy="580" r="110"/><circle cx="90" cy="440" r="75"/><circle cx="1500" cy="430" r="80"/></g><ellipse cx="800" cy="760" rx="330" ry="70" fill="#4a3428"/><path d="M780 825h40v175h-40Z" fill="#2c201a"/><g fill="#1d1715"><circle cx="580" cy="690" r="48"/><circle cx="720" cy="650" r="52"/><circle cx="905" cy="655" r="52"/><circle cx="1030" cy="700" r="48"/><path d="M545 735h70l38 195H505Zm140-30h75l35 210H650Zm180 0h80l40 210h-155Zm125 30h75l38 195h-150Z"/></g></svg>`,
+    backroom:()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Backroom live stage"><rect width="1600" height="1000" fill="#100c0d"/><path d="M0 0h420l-120 780H0Zm1600 0h-420l120 780h300Z" fill="#5b1f27"/><path d="M560 0h480l180 750H380Z" fill="#2b2221"/><g opacity=".45"><path d="m640 0 120 690" stroke="#f2d9a0" stroke-width="45"/><path d="m980 0-130 690" stroke="#d76b54" stroke-width="40"/></g><circle cx="800" cy="510" r="105" fill="#e8b66f" opacity=".12"/><path d="M795 420h10v330h-10Z" fill="#c1b29a"/><ellipse cx="800" cy="415" rx="38" ry="55" fill="#2a2928" stroke="#b8aa98" stroke-width="7"/><path d="M600 790h400v210H600Z" fill="#171314"/><g fill="#090809"><circle cx="170" cy="920" r="140"/><circle cx="410" cy="900" r="150"/><circle cx="700" cy="940" r="170"/><circle cx="1010" cy="930" r="165"/><circle cx="1320" cy="900" r="155"/></g></svg>`,
+    headspace:()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Quiet writing desk"><rect width="1600" height="1000" fill="#bbb7aa"/><rect x="820" y="70" width="600" height="500" fill="#788c8f" stroke="#7a6b5a" stroke-width="24"/><path d="M1120 70v500M820 320h600" stroke="#7a6b5a" stroke-width="14"/><path d="M0 650h1600v350H0Z" fill="#70604f"/><path d="M240 620h990v65H240Z" fill="#493b30"/><path d="M320 685h55v315h-55Zm775 0h55v315h-55Z" fill="#352c25"/><path d="M470 545h250v72H470Z" fill="#efe8d9" transform="rotate(-5 470 545)"/><path d="M520 568h155M530 590h120" stroke="#87796a" stroke-width="5"/><path d="M850 250h16v360h-16Z" fill="#40372f"/><path d="M760 270h205l-85 110H800Z" fill="#d3a86c"/><circle cx="858" cy="390" r="75" fill="#e8c98e" opacity=".25"/><path d="M980 560h95l-10 60h-75Z" fill="#ded4c0"/><path d="M995 570h65v34h-70Z" fill="#806653"/></svg>`,
+    'last-bus':()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Last bus home"><rect width="1600" height="1000" fill="#202832"/><rect x="110" y="80" width="1380" height="610" rx="40" fill="#313a43"/><g fill="#111a23" stroke="#72808a" stroke-width="12"><rect x="170" y="135" width="390" height="360"/><rect x="605" y="135" width="390" height="360"/><rect x="1040" y="135" width="390" height="360"/></g><g fill="#dcaf67" opacity=".6"><path d="M210 380h300v18H210Zm430-120h310v17H640Zm445 170h290v18h-290Z"/></g><path d="M110 690h1380v310H110Z" fill="#1d2329"/><g fill="#3e5360"><path d="M170 760h310l-35 240H205Z"/><path d="M645 760h310l-35 240H680Z"/><path d="M1120 760h310l-35 240h-240Z"/></g><g fill="#aeb8bc" opacity=".65"><circle cx="260" cy="225" r="8"/><circle cx="320" cy="300" r="7"/><circle cx="750" cy="210" r="9"/><circle cx="1210" cy="320" r="8"/></g><path d="M0 0h55v1000H0Zm1545 0h55v1000h-55Z" fill="#10151b"/></svg>`,
+    momentum:()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Bright morning kitchen"><rect width="1600" height="1000" fill="#d5c8ab"/><rect x="0" y="0" width="1600" height="610" fill="#c3d0c9"/><rect x="940" y="70" width="520" height="430" fill="#a9c2c6" stroke="#eee4cf" stroke-width="22"/><path d="M1200 70v430M940 280h520" stroke="#eee4cf" stroke-width="12"/><path d="M0 610h1600v390H0Z" fill="#b69570"/><path d="M180 560h1240v85H180Z" fill="#efdfc6"/><path d="M290 645h75v355h-75Zm940 0h75v355h-75Z" fill="#8b6a50"/><path d="M540 488h115v70H540Z" fill="#f1e7d3"/><path d="M560 500h76v42h-83Z" fill="#644737"/><path d="M715 515h190v40H715Z" fill="#302b27"/><rect x="745" y="470" width="130" height="45" rx="15" fill="#55504a"/><g fill="#f5d584" opacity=".5"><circle cx="1040" cy="205" r="45"/><circle cx="1290" cy="350" r="35"/></g></svg>`,
+    between:()=>`<svg viewBox="0 0 1600 1000" role="img" aria-label="Surreal quiet architecture"><defs><linearGradient id="s" x2="0" y2="1"><stop stop-color="#aaa8aa"/><stop offset="1" stop-color="#6f7778"/></linearGradient></defs><rect width="1600" height="1000" fill="url(#s)"/><circle cx="1160" cy="190" r="110" fill="#ebe1c9" opacity=".65"/><path d="M0 720q310-180 580-30t540-10 480 5v315H0Z" fill="#697273" opacity=".6"/><path d="M220 210h380v610H220Z" fill="#d6d0c5"/><path d="M1000 310h340v510h-340Z" fill="#c7c1b7"/><path d="M360 210v610M1165 310v510" stroke="#9d9992" stroke-width="12"/><path d="M595 520h410v300H595Z" fill="#b5b1aa"/><path d="M690 520q110-210 220 0v300H690Z" fill="#596164"/><path d="M0 820h1600v180H0Z" fill="#7c8382" opacity=".75"/><g fill="#ded7ca" opacity=".35"><circle cx="180" cy="520" r="80"/><circle cx="1450" cy="600" r="120"/></g></svg>`
+  };
+  function sceneArtwork(){
+    let host=document.getElementById('paintedScene');
+    if(!host){
+      host=document.createElement('div');host.id='paintedScene';host.className='painted-scene';
+      const scene=document.querySelector('.scene');if(scene)scene.prepend(host);
+    }
+    const slug=currentRoom()?.slug;
+    if(slug&&host.dataset.room!==slug){host.dataset.room=slug;host.innerHTML=(art[slug]||art.rooftop)()}
+  }
+  function installVisualSystem(){
+    if(document.getElementById('afterlightVisualSystem'))return;
+    const style=document.createElement('style');style.id='afterlightVisualSystem';style.textContent=`
+      .painted-scene{position:absolute;inset:0;z-index:0;overflow:hidden;background:#171513;transition:opacity .45s ease}.painted-scene svg{width:100%;height:100%;display:block;transform:scale(1.018);filter:saturate(.92) contrast(1.02)}
+      .scene>.sun,.scene>.haze,.scene>.city,.scene>.floor,.scene>.rail,.scene>.table,.scene>.plant{display:none!important}.scene:after{z-index:2;background:linear-gradient(180deg,rgba(5,5,5,.02),rgba(8,7,6,.08) 50%,rgba(8,7,6,.46)),radial-gradient(ellipse at 50% 43%,transparent 35%,rgba(0,0,0,.34) 120%)}.grain{z-index:3;opacity:.12}.rain,.stars{z-index:4}.copy,.player,.top,.room-nav,.foot{z-index:10}
+      .copy{max-width:820px}.copy h1{text-shadow:0 2px 28px rgba(0,0,0,.2)}.player{border:1px solid rgba(255,255,255,.15);border-radius:2px;background:rgba(21,18,16,.52);box-shadow:0 24px 80px rgba(0,0,0,.3)}
+      .google-auth{width:100%;min-height:46px;border:1px solid rgba(32,28,23,.24);background:#fff;color:#1f1f1f;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;font-weight:600;border-radius:4px;margin-bottom:12px}.google-auth svg{width:19px;height:19px;flex:0 0 19px}.google-auth:hover{background:#fafafa}.auth-separator{display:flex;align-items:center;gap:10px;color:#7b7268;font-size:10px;text-transform:uppercase;letter-spacing:.12em;margin:2px 0 12px}.auth-separator:before,.auth-separator:after{content:"";height:1px;background:rgba(32,28,23,.16);flex:1}.auth-separator span{white-space:nowrap}
+      @media(max-width:760px){.painted-scene svg{transform:scale(1.15);transform-origin:55% 50%}.copy{bottom:28vh}.copy h1{font-size:clamp(44px,13vw,68px)}.player{background:rgba(18,16,14,.68)}}`;
+    document.head.appendChild(style);sceneArtwork();
+  }
+
   const updateMediaMetadata=()=>{
     if(!('mediaSession' in navigator)||!('MediaMetadata' in window))return;
-    const room=currentRoom();
-    if(!room)return;
-    navigator.mediaSession.metadata=new MediaMetadata({
-      title:room.tracks[t%3],
-      artist:'Afterlight',
-      album:room.name
-    });
+    const room=currentRoom();if(!room)return;
+    navigator.mediaSession.metadata=new MediaMetadata({title:room.tracks[t%3],artist:'Afterlight',album:room.name});
     navigator.mediaSession.playbackState=playing&&!audio.paused?'playing':'paused';
   };
   const updatePosition=()=>{
     if(!('mediaSession' in navigator)||typeof navigator.mediaSession.setPositionState!=='function')return;
     if(!Number.isFinite(audio.duration)||audio.duration<=0||!Number.isFinite(audio.currentTime))return;
-    try{
-      navigator.mediaSession.setPositionState({
-        duration:audio.duration,
-        playbackRate:audio.playbackRate||1,
-        position:Math.min(audio.currentTime,audio.duration)
-      });
-    }catch{}
+    try{navigator.mediaSession.setPositionState({duration:audio.duration,playbackRate:audio.playbackRate||1,position:Math.min(audio.currentTime,audio.duration)})}catch{}
   };
-  const isOutputSinkError=()=>{
-    const message=audio.error?.message||'';
-    return !audio.paused&&audio.readyState>=3&&audio.currentTime>0&&/(MediaSink|audio output|AudioSink)/i.test(message);
-  };
-  const preserveOutputPlayback=()=>{
-    if(!isOutputSinkError())return false;
-    playing=true;
-    syncPlay();
-    setStatus('PLAYING · CHECK AUDIO OUTPUT');
-    if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
-    return true;
-  };
-  if('mediaSession' in navigator){
-    const actions={
-      play:()=>{if(!playing)toggle()},
-      pause:()=>{if(playing)toggle()},
-      nexttrack:()=>track(1),
-      previoustrack:()=>track(-1)
-    };
-    for(const [action,handler] of Object.entries(actions)){
-      try{navigator.mediaSession.setActionHandler(action,handler)}catch{}
-    }
-  }
+  const isOutputSinkError=()=>{const message=audio.error?.message||'';return !audio.paused&&audio.readyState>=3&&audio.currentTime>0&&/(MediaSink|audio output|AudioSink)/i.test(message)};
+  const preserveOutputPlayback=()=>{if(!isOutputSinkError())return false;playing=true;syncPlay();setStatus('PLAYING · CHECK AUDIO OUTPUT');if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';return true};
+  if('mediaSession' in navigator){for(const [action,handler] of Object.entries({play:()=>{if(!playing)toggle()},pause:()=>{if(playing)toggle()},nexttrack:()=>track(1),previoustrack:()=>track(-1)})){try{navigator.mediaSession.setActionHandler(action,handler)}catch{}}}
 
   const billingButton=document.getElementById('manageBilling');
-  if(billingButton){
-    const originalBillingAction=billingButton.onclick;
-    billingButton.onclick=()=>{
-      if(apiConfig?.billingEnabled&&apiConfig?.portalEnabled===false){
-        location.assign('/support/?topic='+encodeURIComponent('Subscription cancellation'));
-        return;
-      }
-      return originalBillingAction?.();
-    };
-    loadApiConfig().then(()=>{
-      if(apiConfig?.billingEnabled&&apiConfig?.portalEnabled===false)billingButton.textContent='Billing support';
-    }).catch(()=>{});
-  }
+  if(billingButton){const originalBillingAction=billingButton.onclick;billingButton.onclick=()=>{if(apiConfig?.billingEnabled&&apiConfig?.portalEnabled===false){location.assign('/support/?topic='+encodeURIComponent('Subscription cancellation'));return}return originalBillingAction?.()};loadApiConfig().then(()=>{if(apiConfig?.billingEnabled&&apiConfig?.portalEnabled===false)billingButton.textContent='Billing support'}).catch(()=>{})}
 
-  const trackNode=document.getElementById('track');
-  if(trackNode)new MutationObserver(updateMediaMetadata).observe(trackNode,{childList:true,subtree:true,characterData:true});
-  audio.addEventListener('loadedmetadata',()=>{updateMediaMetadata();updatePosition()});
-  audio.addEventListener('durationchange',updatePosition);
-  audio.addEventListener('timeupdate',updatePosition);
-  audio.addEventListener('playing',()=>{
-    playing=true;
-    syncPlay();
-    updateMediaMetadata();
-    if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
-  });
-  audio.addEventListener('play',()=>{updateMediaMetadata();if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing'});
-  audio.addEventListener('pause',()=>{if('mediaSession' in navigator)navigator.mediaSession.playbackState='paused'});
-  audio.addEventListener('waiting',()=>setStatus('BUFFERING · KEEP THIS TAB OPEN'));
-  audio.addEventListener('stalled',()=>setStatus('NETWORK SLOW · RETRYING AUDIO'));
-  audio.addEventListener('canplay',()=>{if(!playing)setStatus('SOUND READY · TAP PLAY')});
-  audio.addEventListener('error',()=>{
-    if(isOutputSinkError()){
-      preserveOutputPlayback();
-      setTimeout(preserveOutputPlayback,250);
-      trackEvent('audio_output_error',{room:currentRoom()?.slug||null,track:t,code:audio.error?.code||null,message:audio.error?.message||''});
-      toast('Playback is running · check audio output');
-      return;
-    }
-    playing=false;
-    syncPlay();
-    setStatus('AUDIO UNAVAILABLE · TRY AGAIN');
-    trackEvent('audio_error',{room:currentRoom()?.slug||null,track:t,code:audio.error?.code||null});
-    toast('Audio could not load · try again');
-  });
+  const originalRender=typeof render==='function'?render:null;
+  if(originalRender){render=function(...args){const out=originalRender(...args);sceneArtwork();return out}}
+  installVisualSystem();installGoogleAuth();sceneArtwork();
+
+  const trackNode=document.getElementById('track');if(trackNode)new MutationObserver(updateMediaMetadata).observe(trackNode,{childList:true,subtree:true,characterData:true});
+  audio.addEventListener('loadedmetadata',()=>{updateMediaMetadata();updatePosition()});audio.addEventListener('durationchange',updatePosition);audio.addEventListener('timeupdate',updatePosition);
+  audio.addEventListener('playing',()=>{playing=true;syncPlay();updateMediaMetadata();if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing'});
+  audio.addEventListener('play',()=>{updateMediaMetadata();if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing'});audio.addEventListener('pause',()=>{if('mediaSession' in navigator)navigator.mediaSession.playbackState='paused'});
+  audio.addEventListener('waiting',()=>setStatus('BUFFERING · KEEP THIS TAB OPEN'));audio.addEventListener('stalled',()=>setStatus('NETWORK SLOW · RETRYING AUDIO'));audio.addEventListener('canplay',()=>{if(!playing)setStatus('SOUND READY · TAP PLAY')});
+  audio.addEventListener('error',()=>{if(isOutputSinkError()){preserveOutputPlayback();setTimeout(preserveOutputPlayback,250);trackEvent('audio_output_error',{room:currentRoom()?.slug||null,track:t,code:audio.error?.code||null,message:audio.error?.message||''});toast('Playback is running · check audio output');return}playing=false;syncPlay();setStatus('AUDIO UNAVAILABLE · TRY AGAIN');trackEvent('audio_error',{room:currentRoom()?.slug||null,track:t,code:audio.error?.code||null});toast('Audio could not load · try again')});
   updateMediaMetadata();
 })();
