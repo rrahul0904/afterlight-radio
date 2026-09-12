@@ -29,6 +29,7 @@ jobs:
     env:
       BACKEND: https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech
       APP: https://afterlight-radio.vercel.app
+      NEON_AUTH_ORIGIN: https://ep-bitter-cake-axu59msq.neonauth.c-4.us-east-2.aws.neon.tech
     steps:
       - name: Backend readiness
         shell: bash
@@ -53,7 +54,7 @@ jobs:
           echo "google_oauth_status=$STATUS"
           cat /tmp/google.json
           test "$STATUS" -ge 200 -a "$STATUS" -lt 300
-          node -e 'const x=JSON.parse(require("fs").readFileSync("/tmp/google.json","utf8")); if(!x.url||!/^https:\/\//.test(x.url)||!/google/i.test(x.url)) process.exit(1)'
+          node -e 'const x=JSON.parse(require("fs").readFileSync("/tmp/google.json","utf8")); const u=new URL(x.url||""); if(x.redirect!==true||u.origin!==process.env.NEON_AUTH_ORIGIN||!u.pathname.includes("/afterlight/auth/sign-in/social/init")||!u.searchParams.get("token")) process.exit(1)'
 
       - name: Vercel API proxy
         shell: bash
@@ -86,7 +87,8 @@ jobs:
           grep -q 'Google when you choose Google OAuth' /tmp/privacy.html
           if grep -q 'Supabase for authentication' /tmp/privacy.html; then echo 'Production privacy page is stale'; exit 1; fi
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/terms/" -o /tmp/terms.html
-          grep -q 'Until that activation is complete' /tmp/terms.html
+          grep -q 'When self-service billing is unavailable' /tmp/terms.html
+          grep -q 'Afterlight Support' /tmp/terms.html
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/support/" -o /tmp/support.html
           grep -q 'Subscription cancellation' /tmp/support.html
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/runtime-enhancements.js" -o /tmp/runtime.js
