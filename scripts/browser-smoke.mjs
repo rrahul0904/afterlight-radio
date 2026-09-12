@@ -30,6 +30,13 @@ async function playbackState(page){
   }));
 }
 
+async function sceneState(page){
+  return page.evaluate(()=>{
+    const host=document.querySelector('#paintedScene'),svg=host?.querySelector('svg');
+    return {room:host?.dataset.room||null,label:svg?.getAttribute('aria-label')||null,width:svg?.getBoundingClientRect().width||0,height:svg?.getBoundingClientRect().height||0};
+  });
+}
+
 let failed=false;
 for(const [name,type,contextOptions] of targets){
   const browser=await type.launch({headless:true});
@@ -48,13 +55,30 @@ for(const [name,type,contextOptions] of targets){
     r=await page.goto(base+'/rooftop/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('rooftop status '+r?.status());
     await page.locator('#play').waitFor({state:'visible',timeout:8000});
+    await page.locator('#paintedScene svg').waitFor({state:'visible',timeout:8000});
+    let scene=await sceneState(page);
+    if(scene.room!=='rooftop'||scene.label!=='Rooftop at sundown'||scene.width<300||scene.height<300)throw new Error('rooftop artwork failed '+JSON.stringify(scene));
+    await page.locator('#accountBtn').click();
+    await page.locator('#googleAuthMain').waitFor({state:'visible',timeout:5000});
+    if(!(await page.locator('#googleAuthMain').innerText()).includes('Continue with Google'))throw new Error('main Google auth button copy missing');
+    await page.locator('#accountClose').click();
+
+    r=await page.goto(base+'/window/',{waitUntil:'domcontentloaded',timeout:20000});
+    if(!r?.ok())throw new Error('window status '+r?.status());
+    await page.locator('#paintedScene svg').waitFor({state:'visible',timeout:8000});
+    scene=await sceneState(page);
+    if(scene.room!=='window'||scene.label!=='Rainy window seat')throw new Error('window artwork failed '+JSON.stringify(scene));
+
+    r=await page.goto(base+'/rooftop/',{waitUntil:'domcontentloaded',timeout:20000});
+    if(!r?.ok())throw new Error('rooftop return status '+r?.status());
+    await page.locator('#play').waitFor({state:'visible',timeout:8000});
     const wav=await page.evaluate(async()=>{const r=await fetch('/audio/rooftop/1.wav',{method:'GET'});return {status:r.status,type:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength}});
-    if(![200,206].includes(wav.status)||!/^audio\//i.test(wav.type||'')||wav.bytes<500000)throw new Error('WAV failed '+JSON.stringify(wav));
+    if(![200,206].includes(wav.status)||!/^audio\//i.test(wav.type||'')||wav.bytes<1000000)throw new Error('WAV failed '+JSON.stringify(wav));
     const support=await page.evaluate(()=>audio.canPlayType('audio/wav'));
     if(!support)throw new Error('browser reports no WAV support');
     await page.locator('#play').click({timeout:8000});
     try{
-      await page.waitForFunction(()=>document.body.classList.contains('is-playing')&&!audio.paused,{timeout:6000});
+      await page.waitForFunction(()=>document.body.classList.contains('is-playing')&&!audio.paused&&audio.currentTime>0,{timeout:6000});
     }catch{
       throw new Error('Play control did not enter playing state: '+JSON.stringify(await playbackState(page)));
     }
@@ -62,7 +86,7 @@ for(const [name,type,contextOptions] of targets){
     if(name==='firefox-desktop'){
       await page.waitForTimeout(12000);
       const sustained=await playbackState(page);
-      if(!sustained.bodyPlaying||sustained.paused)throw new Error('Firefox did not sustain playback: '+JSON.stringify(sustained));
+      if(!sustained.bodyPlaying||sustained.paused||sustained.currentTime<=0)throw new Error('Firefox did not sustain playback: '+JSON.stringify(sustained));
       if(/MediaSink|audio output|AudioSink/i.test(sustained.error?.message||'')&&!/CHECK AUDIO OUTPUT/.test(sustained.status)){
         throw new Error('Firefox output-sink error was not surfaced correctly: '+JSON.stringify(sustained));
       }
@@ -74,9 +98,19 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#signedOut').waitFor({state:'attached',timeout:8000});
     await page.locator('#signedIn').waitFor({state:'attached',timeout:8000});
     await page.locator('#loginForm').waitFor({state:'attached',timeout:8000});
+    await page.locator('#googleAuthAccount').waitFor({state:'visible',timeout:5000});
+
+    let oauthPayload=null;
+    await page.route('**/api/auth/sign-in/social',async route=>{
+      try{oauthPayload=route.request().postDataJSON()}catch{}
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({url:base+'/account/?oauth=google-test'})});
+    });
+    await page.locator('#googleAuthAccount').click();
+    await page.waitForURL('**/account/?oauth=google-test',{timeout:8000});
+    if(oauthPayload?.provider!=='google'||oauthPayload?.callbackURL!=='/account/')throw new Error('Google OAuth initiation payload mismatch '+JSON.stringify(oauthPayload));
 
     if(errors.length)throw new Error(errors.join(' | '));
-    console.log('PASS',name,'WAV',wav.status,wav.bytes+' bytes');
+    console.log('PASS',name,'artwork',scene.room,'Google OAuth','WAV',wav.status,wav.bytes+' bytes');
   }catch(error){
     failed=true;console.error('FAIL',name,error.message);
   }finally{await context.close();await browser.close()}
