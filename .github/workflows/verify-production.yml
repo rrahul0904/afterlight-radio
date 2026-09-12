@@ -13,6 +13,8 @@ on:
       - 'scripts/build.mjs'
       - 'scripts/runtime-enhancements.js'
       - 'scripts/account-enhancements.js'
+      - 'scripts/audio-library.mjs'
+      - 'scripts/product-quality-check.mjs'
       - 'vercel.json'
       - '.github/workflows/verify-production.yml'
 
@@ -41,6 +43,16 @@ jobs:
           set -euo pipefail
           STATUS="$(curl --silent --output /tmp/session.json --write-out '%{http_code}' --retry 4 --retry-all-errors "$BACKEND/api/auth/get-session" -H "X-Afterlight-Origin: $APP")"
           test "$STATUS" = "200"
+
+      - name: Google OAuth initiation
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl --silent --show-error --output /tmp/google.json --write-out '%{http_code}' -X POST "$APP/api/auth/sign-in/social" -H "Origin: $APP" -H 'Content-Type: application/json' -H 'Accept: application/json' --data '{"provider":"google","callbackURL":"/account/"}')"
+          echo "google_oauth_status=$STATUS"
+          cat /tmp/google.json
+          test "$STATUS" -ge 200 -a "$STATUS" -lt 300
+          node -e 'const x=JSON.parse(require("fs").readFileSync("/tmp/google.json","utf8")); if(!x.url||!/^https:\/\//.test(x.url)||!/google/i.test(x.url)) process.exit(1)'
 
       - name: Vercel API proxy
         shell: bash
@@ -75,8 +87,13 @@ jobs:
           grep -q 'Subscription cancellation' /tmp/support.html
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/runtime-enhancements.js" -o /tmp/runtime.js
           grep -q 'mediaSession' /tmp/runtime.js
+          grep -q 'googleAuthMain' /tmp/runtime.js
+          grep -q 'paintedScene' /tmp/runtime.js
+          grep -q 'Rooftop at sundown' /tmp/runtime.js
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/account-enhancements.js" -o /tmp/account-runtime.js
           grep -q 'Billing support' /tmp/account-runtime.js
+          grep -q 'googleAuthAccount' /tmp/account-runtime.js
+          grep -q 'Continue with Google' /tmp/account-runtime.js
 
       - name: Production security headers
         shell: bash
@@ -94,8 +111,15 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/audio/rooftop/1.wav" -o /tmp/rooftop.wav
-          test "$(wc -c < /tmp/rooftop.wav)" -gt 500000
+          test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
           test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
+          node - <<'NODE'
+          const fs=require('fs');const b=fs.readFileSync('/tmp/rooftop.wav');
+          const rate=b.readUInt32LE(24),bytes=b.readUInt32LE(40),duration=bytes/(rate*2);let sum=0,peak=0,n=0;
+          for(let p=44;p+1<b.length;p+=16){const a=Math.abs(b.readInt16LE(p))/32768;sum+=a*a;peak=Math.max(peak,a);n++}
+          const rms=Math.sqrt(sum/n);console.log({rate,duration,rms,peak});
+          if(rate!==32000||duration<22||rms<.025||peak<.30)process.exit(1);
+          NODE
 
       - name: Support endpoint validation
         shell: bash
