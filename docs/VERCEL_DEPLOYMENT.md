@@ -10,54 +10,69 @@ Canonical project:
 - GitHub repository: `rrahul0904/afterlight-radio`
 - Production branch: `main`
 
-## Current deployment blocker
+## Release paths
 
-The existing Vercel project is not connected to a Git repository. Because of that, pushes to `main` do not automatically create a production deployment and the live alias can drift behind the source repository.
+The existing Vercel project is not currently connected to GitHub. There are therefore two supported release paths; do not create a second Vercel project.
 
-## Preferred one-time fix
+### Preferred: connect the canonical Vercel project to GitHub
 
-In the Vercel dashboard:
+In Vercel, open **afterlight-radio → Settings → Git**, connect `rrahul0904/afterlight-radio`, keep the project root at the repository root, and set the production branch to `main`. The repository already declares the build command, public output directory, API rewrite and security headers in `vercel.json`.
 
-1. Open the existing **afterlight-radio** project.
-2. Open **Settings → Git**.
-3. Connect a Git repository.
-4. Choose GitHub repository **`rrahul0904/afterlight-radio`**.
-5. Set the production branch to **`main`**.
-6. Keep project root at the repository root.
-7. Confirm the project uses `vercel.json`; the repository already declares:
-   - build command: `npm run build`
-   - output directory: `public`
-   - API rewrite: `/api/:path*` → `/api?path=:path*`
-8. Deploy the current `main` revision to production.
+Once connected, pushes to `main` become the normal production path and the live alias cannot silently drift behind the repository.
 
-Once connected, normal pushes to `main` should become the production deployment path. Do not create a second `afterlight-radio` Vercel project just to obtain Git integration; connect the existing canonical project so the existing production alias remains authoritative.
+### Guarded GitHub Actions fallback
 
-Vercel also documents the CLI alternative `vercel git connect` for connecting the Git repository associated with a locally linked project.
+`.github/workflows/deploy-vercel.yml` is the repository-controlled fallback. If the repository secret `VERCEL_TOKEN` exists, it:
+
+1. checks out the exact `main` revision,
+2. runs the complete `npm test` release gate,
+3. installs the pinned Vercel CLI,
+4. pulls the canonical production project settings,
+5. builds a production artifact, and
+6. deploys that exact prebuilt artifact to the canonical project.
+
+`VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are intentionally fixed to the canonical team/project. The token is never committed. When the token is absent, the workflow reports that deployment was intentionally skipped rather than pretending a production release happened.
 
 ## Verified artifact fallback
 
-Until Git integration is active, the GitHub workflow **Export Vercel Source** runs on every `main` push. It:
+The GitHub workflow **Export Vercel Source** runs on every `main` push. It checks out the exact commit, runs the release gate, creates `vercel-source.zip` with `git archive`, and publishes that short-lived artifact. This is useful when Git integration or CI credentials are unavailable.
 
-1. checks out the exact commit,
-2. runs the full `npm test` release gate,
-3. creates `vercel-source.zip` using `git archive`, and
-4. uploads that exact revision as a short-lived GitHub Actions artifact.
+## September 12, 2026 quota incident
 
-The export is complete by construction; it no longer relies on a hand-maintained file list.
+A preview for commit `878d1d2721a35a5710ea90f032a2f06851debeb8` was built successfully as Vercel deployment `dpl_9LLhtYtXJeF755NAUwBccfDNQsfU`. It produced all 12 room routes and 36 generated audio files and reached `READY`.
+
+The subsequent production publish was rejected by the Vercel Hobby account because the team had exhausted the `api-deployments-free-per-day` limit (100 API deployments/day). The quota reset reported by Vercel was September 13, 2026 at approximately 01:13 ET.
+
+Do not rebuild merely to work around this limit. Vercel supports promoting an existing validated deployment without rebuilding via:
+
+```text
+POST /v10/projects/{projectId}/promote/{deploymentId}
+```
+
+or with the CLI:
+
+```bash
+vercel promote <deployment-id-or-url> --yes
+```
+
+If promotion is unavailable to the active automation surface, wait for the account quota reset and deploy the then-current verified `main` revision once. Avoid repeated API deployment attempts.
 
 ## Post-deploy verification
 
 A deployment is not considered current until all of the following are verified against `https://afterlight-radio.vercel.app`:
 
-- `/api/ready` returns `ok: true`, `auth: true`, `database: true`, `checkout: true`, `webhook: true`.
-- `/privacy/` names **Vercel, Neon and Stripe** and does not name Supabase as a current processor.
-- `/terms/` describes the billing-support fallback while Customer Portal remains inactive.
-- `/support/` includes **Subscription cancellation** as a topic.
-- `/runtime-enhancements.js` returns 200.
+- `/api/ready` reports `ok`, auth, database, checkout and webhook readiness.
+- Google OAuth initiation returns an HTTPS redirect from `/api/auth/sign-in/social` with provider `google`.
+- `/privacy/` names Vercel, Neon and Stripe and does not describe Supabase as a current processor.
+- `/terms/` and `/support/` describe the billing-support cancellation fallback while Stripe Customer Portal is unavailable.
+- `/runtime-enhancements.js` and `/mobile-visual-polish.js` return the current visual/auth runtime.
 - `/rooftop/` can fetch `/audio/rooftop/1.wav` and enter the playing state after a user click.
-- Security response headers include `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, the configured Referrer Policy, Permissions Policy and COOP.
-- The Browser Matrix, CI and Accessibility workflows are green for the source revision being deployed.
+- Security response headers include `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, Referrer Policy, Permissions Policy and COOP.
+- Browser Matrix and CI are green for the deployed source revision.
+- Vercel runtime error scan shows no new application error cluster after smoke traffic.
 
-## Customer Portal is separate
+## Stripe billing behavior
 
-Git/Vercel deployment does not resolve Stripe Customer Portal. `/api/ready` may continue to report `portal: false` until the Stripe account has an active Customer Portal configuration and the production backend has an authorized way to create portal sessions.
+The live monthly and annual Stripe Payment Links are active subscriptions and the live entitlement webhook is enabled for checkout completion and subscription create/update/delete events.
+
+Stripe Customer Portal remains a separate optional self-service capability. If the backend reports `portalEnabled: false`, both account surfaces route subscribers to the in-product billing support flow instead of a broken portal button. Support includes a dedicated **Subscription cancellation** topic and stores the request in the Afterlight backend for handling. The product must never claim that self-service portal access is active when it is not.
