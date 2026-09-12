@@ -10,6 +10,7 @@ on:
       - 'legal/**'
       - 'scripts/build.mjs'
       - 'scripts/runtime-enhancements.js'
+      - 'scripts/mobile-visual-polish.js'
       - 'scripts/account-enhancements.js'
       - 'scripts/audio-library.mjs'
       - 'scripts/product-quality-check.mjs'
