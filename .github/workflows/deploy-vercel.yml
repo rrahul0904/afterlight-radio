@@ -1,0 +1,83 @@
+name: Deploy Vercel Production
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'account.html'
+      - 'legal/**'
+      - 'api/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'neon/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vercel.json'
+      - '.github/workflows/deploy-vercel.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_zmEezpOKGZy2sH5nqTfO44LD
+      VERCEL_PROJECT_ID: prj_MrkrMOOEYpE5WWrc0dhZeSXuJtUA
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check deployment authorization
+        id: auth
+        shell: bash
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::VERCEL_TOKEN is not configured. Production deployment is intentionally skipped.'
+          fi
+
+      - name: Install and verify exact revision
+        if: steps.auth.outputs.available == 'true'
+        run: |
+          npm install
+          npm test
+
+      - name: Install pinned Vercel CLI
+        if: steps.auth.outputs.available == 'true'
+        run: npm install --global vercel@59.11.7
+
+      - name: Pull production project settings
+        if: steps.auth.outputs.available == 'true'
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build production artifact
+        if: steps.auth.outputs.available == 'true'
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy verified artifact
+        if: steps.auth.outputs.available == 'true'
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          if [ "${{ steps.auth.outputs.available }}" = 'true' ]; then
+            echo 'Verified production deployment command completed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Production deploy skipped because VERCEL_TOKEN is not configured.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Use the canonical Vercel project or connect Git integration; never create a duplicate project.' >> "$GITHUB_STEP_SUMMARY"
+          fi
