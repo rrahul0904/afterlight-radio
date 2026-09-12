@@ -12,7 +12,7 @@ html{background:#eee6d8;color:#201c17;font-family:Inter,system-ui,sans-serif}bod
 <body><main class="wrap">
 <div class="brand"><a href="/">Afterlight</a></div>
 <h1>Need a hand?</h1>
-<p>Tell us what happened. Support requests are stored securely with the product so they can be reviewed without relying on an unconfigured mailbox.</p>
+<p>Tell us what happened. Support requests are stored securely with the product so they can be reviewed and matched to your Afterlight account when needed.</p>
 <form id="supportForm">
 <label>Email<input id="email" type="email" autocomplete="email" required placeholder="you@example.com"></label>
 <label>Topic<select id="subject"><option>Playback</option><option>Account</option><option>Billing</option><option>Subscription cancellation</option><option>Feedback</option><option>Other</option></select></label>
@@ -21,7 +21,7 @@ html{background:#eee6d8;color:#201c17;font-family:Inter,system-ui,sans-serif}bod
 <div id="status" class="status" aria-live="polite"></div>
 </form>
 <h2>Billing</h2>
-<p>Afterlight+ checkout is handled securely by Stripe. Stripe self-service billing is still being activated for the live account. Until it is available, use this form and choose Billing or Subscription cancellation. Your request is saved in Afterlight and can be matched to your subscription account.</p>
+<p>Afterlight+ checkout is handled securely by Stripe. Billing changes and subscription cancellations are handled through this support form when self-service billing is not available. Choose Billing or Subscription cancellation; your request is saved in Afterlight and can be matched to your subscription account.</p>
 <h2>Playback</h2>
 <p>If audio does not start, tap Play once while the browser is active, confirm the device is not muted, and check the Afterlight volume control. iPhone and Safari require a user gesture before starting audio.</p>
 <h2>Account access</h2>
@@ -33,5 +33,5 @@ if(requestedTopic&&[...subject.options].some(o=>o.value===requestedTopic))subjec
 if(subject.value==='Subscription cancellation')message.placeholder='Tell us that you want to cancel and whether you want cancellation at the end of the current billing period. Never include card numbers.';
 f.onsubmit=async e=>{e.preventDefault();s.textContent='Sending…';try{const r=await fetch('/api/support',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),subject:subject.value,message:message.value.trim()})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Could not send request');f.reset();if(requestedTopic&&[...subject.options].some(o=>o.value===requestedTopic))subject.value=requestedTopic;s.textContent='Received. Your support request has been saved.'}catch(err){s.textContent=err.message}};
 </script>
-<hr><p class="fine">Last updated September 11, 2026 · <a href="/">Return to Afterlight</a></p>
+<hr><p class="fine">Last updated September 12, 2026 · <a href="/">Return to Afterlight</a></p>
 </main></body></html>
