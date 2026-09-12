@@ -1,14 +1,15 @@
 {
   "name": "afterlight-radio",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "type": "module",
   "description": "Premium 12-room place-based listening experience for Cloudflare Workers and Vercel",
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
+    "check:quality": "node scripts/product-quality-check.mjs",
     "check:worker": "npx --yes wrangler@4.130.0 deploy --dry-run --outdir .wrangler-dry-run",
-    "test": "npm run build && npm run check && npm run check:runtime && npm run check:vercel && npm run check:vercel-config && npm run audit && npm run check:worker",
+    "test": "npm run build && npm run check && npm run check:quality && npm run check:runtime && npm run check:vercel && npm run check:vercel-config && npm run audit && npm run check:worker",
     "serve": "python3 -m http.server 4173 -d public",
     "cf:dev": "npm run build && npx --yes wrangler@4.130.0 dev",
     "cf:deploy": "npm run build && npx --yes wrangler@4.130.0 deploy",
