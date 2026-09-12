@@ -60,6 +60,17 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('.brand').first().waitFor({state:'visible',timeout:8000});
     const body=(await page.locator('body').innerText()).toLowerCase();
     if(!body.includes('afterlight'))throw new Error('brand missing on home');
+    await page.locator('#homeGrid .home-card[data-room="rooftop"]').waitFor({state:'visible',timeout:5000});
+    const homeAccount=page.locator('#homeAccount');
+    await homeAccount.waitFor({state:'visible',timeout:5000});
+    if(name.includes('mobile')){
+      const box=await homeAccount.boundingBox();
+      if(!box||box.width<40||box.height<40)throw new Error('mobile discovery account touch target is too small '+JSON.stringify(box));
+    }
+    await page.screenshot({path:`${shotDir}/${name}-discovery.png`,fullPage:true});
+    await homeAccount.click();
+    await page.locator('#googleAuthMain').waitFor({state:'visible',timeout:5000});
+    await page.locator('#accountClose').click();
 
     r=await page.goto(base+'/rooftop/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('rooftop status '+r?.status());
@@ -131,7 +142,7 @@ for(const [name,type,contextOptions] of targets){
     if(oauthPayload?.provider!=='google'||oauthPayload?.callbackURL!=='/account/')throw new Error('Google OAuth initiation payload mismatch '+JSON.stringify(oauthPayload));
 
     if(errors.length)throw new Error(errors.join(' | '));
-    console.log('PASS',name,'artwork',scene.room,'Google OAuth','WAV',wav.status,wav.bytes+' bytes');
+    console.log('PASS',name,'discovery auth','artwork',scene.room,'Google OAuth','WAV',wav.status,wav.bytes+' bytes');
   }catch(error){
     failed=true;console.error('FAIL',name,error.message);
     try{await page.screenshot({path:`${shotDir}/${name}-failure.png`,fullPage:true})}catch{}
