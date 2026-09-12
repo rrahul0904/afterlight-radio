@@ -1,4 +1,5 @@
 import { chromium, firefox, webkit } from 'playwright';
+import { mkdir } from 'node:fs/promises';
 
 const base=process.env.BASE_URL||'https://afterlight-radio.vercel.app';
 const targets=[
@@ -8,6 +9,8 @@ const targets=[
   ['chromium-mobile',chromium,{viewport:{width:390,height:844},isMobile:true,hasTouch:true}],
   ['webkit-mobile',webkit,{viewport:{width:390,height:844},isMobile:true,hasTouch:true}]
 ];
+const shotDir='test-artifacts/screenshots';
+await mkdir(shotDir,{recursive:true});
 
 function expectedSignedOutNoise(message){
   return /failed to load resource:.*\b401\b/i.test(message)||/\/api\/me due to access control checks/i.test(message);
@@ -58,9 +61,11 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#paintedScene svg').waitFor({state:'visible',timeout:8000});
     let scene=await sceneState(page);
     if(scene.room!=='rooftop'||scene.label!=='Rooftop at sundown'||scene.width<300||scene.height<300)throw new Error('rooftop artwork failed '+JSON.stringify(scene));
+    await page.screenshot({path:`${shotDir}/${name}-rooftop.png`,fullPage:true});
     await page.locator('#accountBtn').click();
     await page.locator('#googleAuthMain').waitFor({state:'visible',timeout:5000});
     if(!(await page.locator('#googleAuthMain').innerText()).includes('Continue with Google'))throw new Error('main Google auth button copy missing');
+    await page.screenshot({path:`${shotDir}/${name}-auth-modal.png`,fullPage:true});
     await page.locator('#accountClose').click();
 
     r=await page.goto(base+'/window/',{waitUntil:'domcontentloaded',timeout:20000});
@@ -68,6 +73,7 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#paintedScene svg').waitFor({state:'visible',timeout:8000});
     scene=await sceneState(page);
     if(scene.room!=='window'||scene.label!=='Rainy window seat')throw new Error('window artwork failed '+JSON.stringify(scene));
+    await page.screenshot({path:`${shotDir}/${name}-window.png`,fullPage:true});
 
     r=await page.goto(base+'/rooftop/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('rooftop return status '+r?.status());
@@ -99,6 +105,7 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#signedIn').waitFor({state:'attached',timeout:8000});
     await page.locator('#loginForm').waitFor({state:'attached',timeout:8000});
     await page.locator('#googleAuthAccount').waitFor({state:'visible',timeout:5000});
+    await page.screenshot({path:`${shotDir}/${name}-account.png`,fullPage:true});
 
     let oauthPayload=null;
     await page.route('**/api/auth/sign-in/social',async route=>{
@@ -113,6 +120,7 @@ for(const [name,type,contextOptions] of targets){
     console.log('PASS',name,'artwork',scene.room,'Google OAuth','WAV',wav.status,wav.bytes+' bytes');
   }catch(error){
     failed=true;console.error('FAIL',name,error.message);
+    try{await page.screenshot({path:`${shotDir}/${name}-failure.png`,fullPage:true})}catch{}
   }finally{await context.close();await browser.close()}
 }
 if(failed)process.exit(1);
