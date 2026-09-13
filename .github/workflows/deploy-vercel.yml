@@ -1,5 +1,6 @@
 name: Deploy Vercel Production
 
+# Release trigger: 2026-09-13 production promotion after Vercel quota reset.
 on:
   workflow_dispatch:
   push:
