@@ -1,21 +1,10 @@
 name: Deploy Vercel Production
 
+# Manual fallback for operators with a VERCEL_TOKEN. Production promotion can also
+# be performed through the connected Vercel deployment API, but this workflow must
+# never report success when authorization is missing.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'index.html'
-      - 'account.html'
-      - 'legal/**'
-      - 'api/**'
-      - 'src/**'
-      - 'scripts/**'
-      - 'neon/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'vercel.json'
-      - '.github/workflows/deploy-vercel.yml'
 
 permissions:
   contents: read
@@ -32,6 +21,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_zmEezpOKGZy2sH5nqTfO44LD
       VERCEL_PROJECT_ID: prj_MrkrMOOEYpE5WWrc0dhZeSXuJtUA
+      AFTERLIGHT_RELEASE_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v6
 
@@ -44,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo '::error::VERCEL_TOKEN is not configured. Refusing to report a successful production deploy when no deployment can run.'
+            echo '::error::VERCEL_TOKEN is not configured. No deployment was attempted.'
             exit 1
           fi
 
@@ -71,13 +61,15 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Production deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify deployed audio artifact
+      - name: Verify deployed revision and audio artifact
         shell: bash
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
+          LIVE_SHA="$(curl --fail --silent --show-error --retry 6 --retry-all-errors "$DEPLOYMENT_URL/release.txt" | tr -d '\r\n')"
+          test "$LIVE_SHA" = "$GITHUB_SHA"
           curl --fail --silent --show-error --retry 6 --retry-all-errors "$DEPLOYMENT_URL/audio/rooftop/1.wav" -o /tmp/rooftop.wav
           test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
           test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
-          echo 'Rooftop audio artifact is present and non-empty.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact revision $GITHUB_SHA and Rooftop audio artifact are live." >> "$GITHUB_STEP_SUMMARY"
