@@ -1,6 +1,5 @@
 name: Deploy Vercel Production
 
-# Release trigger: 2026-09-13 production promotion after Vercel quota reset.
 on:
   workflow_dispatch:
   push:
@@ -40,45 +39,45 @@ jobs:
         with:
           node-version: 22
 
-      - name: Check deployment authorization
-        id: auth
+      - name: Require deployment authorization
         shell: bash
         run: |
-          if [ -n "$VERCEL_TOKEN" ]; then
-            echo 'available=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'available=false' >> "$GITHUB_OUTPUT"
-            echo '::notice::VERCEL_TOKEN is not configured. Production deployment is intentionally skipped.'
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo '::error::VERCEL_TOKEN is not configured. Refusing to report a successful production deploy when no deployment can run.'
+            exit 1
           fi
 
       - name: Install and verify exact revision
-        if: steps.auth.outputs.available == 'true'
         run: |
           npm install
           npm test
 
       - name: Install pinned Vercel CLI
-        if: steps.auth.outputs.available == 'true'
         run: npm install --global vercel@59.11.7
 
       - name: Pull production project settings
-        if: steps.auth.outputs.available == 'true'
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
       - name: Build production artifact
-        if: steps.auth.outputs.available == 'true'
         run: vercel build --prod --token="$VERCEL_TOKEN"
 
       - name: Deploy verified artifact
-        if: steps.auth.outputs.available == 'true'
-        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
-
-      - name: Deployment summary
+        id: deploy
         shell: bash
         run: |
-          if [ "${{ steps.auth.outputs.available }}" = 'true' ]; then
-            echo 'Verified production deployment command completed.' >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'Production deploy skipped because VERCEL_TOKEN is not configured.' >> "$GITHUB_STEP_SUMMARY"
-            echo 'Use the canonical Vercel project or connect Git integration; never create a duplicate project.' >> "$GITHUB_STEP_SUMMARY"
-          fi
+          set -euo pipefail
+          URL="$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Production deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify deployed audio artifact
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 6 --retry-all-errors "$DEPLOYMENT_URL/audio/rooftop/1.wav" -o /tmp/rooftop.wav
+          test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
+          test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
+          echo 'Rooftop audio artifact is present and non-empty.' >> "$GITHUB_STEP_SUMMARY"
