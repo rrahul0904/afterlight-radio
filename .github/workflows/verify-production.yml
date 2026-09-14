@@ -2,22 +2,11 @@ name: Verify Production
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'functions/**'
-      - 'api/**'
-      - 'index.html'
-      - 'account.html'
-      - 'legal/**'
-      - 'scripts/build.mjs'
-      - 'scripts/runtime-enhancements.js'
-      - 'scripts/mobile-visual-polish.js'
-      - 'scripts/account-enhancements.js'
-      - 'scripts/audio-library.mjs'
-      - 'scripts/product-quality-check.mjs'
-      - 'vercel.json'
-      - '.github/workflows/verify-production.yml'
+    inputs:
+      expected_sha:
+        description: Exact Git SHA expected at the canonical production hostname
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -31,6 +20,16 @@ jobs:
       APP: https://afterlight-radio.vercel.app
       NEON_AUTH_ORIGIN: https://ep-bitter-cake-axu59msq.neonauth.c-4.us-east-2.aws.neon.tech
     steps:
+      - name: Exact production revision
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          LIVE_SHA="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/release.txt" | tr -d '\r\n')"
+          echo "expected=$EXPECTED_SHA live=$LIVE_SHA"
+          test "$LIVE_SHA" = "$EXPECTED_SHA"
+
       - name: Backend readiness
         shell: bash
         run: |
