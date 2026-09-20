@@ -65,13 +65,14 @@
     if (active) return;
     var input = byId('focusTask');
     var task = input ? input.value.trim() : '';
+    var linkedTodo = selectedTodoId ? state.todos.find(function (todo) { return todo.id === selectedTodoId && !todo.completedAt; }) : null;
     active = {
       id: (crypto.randomUUID && crypto.randomUUID()) || ('focus-' + Date.now()),
       startedAt: Date.now(),
       focusedSeconds: 0,
       idleSeconds: 0,
       task: task,
-      todoId: selectedTodoId,
+      todoId: linkedTodo ? linkedTodo.id : null,
       room: currentRoomSlug(),
       plannedMinutes: minutes || null
     };
@@ -124,6 +125,7 @@
     var todo = state.todos.find(function (item) { return item.id === id; });
     if (!todo) return;
     todo.completedAt = todo.completedAt ? null : Date.now();
+    if (todo.completedAt && selectedTodoId === todo.id) selectedTodoId = null;
     persist();
     renderTodos();
   }
