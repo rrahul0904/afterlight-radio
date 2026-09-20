@@ -259,6 +259,10 @@
   setInterval(function () {
     if (active) {
       accountDelta();
+      if (active.plannedMinutes && Date.now() >= active.startedAt + active.plannedMinutes * 60000) {
+        finishSession('timer-complete');
+        return;
+      }
       persist();
     }
     renderLive();
