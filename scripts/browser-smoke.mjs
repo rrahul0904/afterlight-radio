@@ -127,6 +127,12 @@ for(const [name,type,contextOptions] of targets){
     if(focusDone.active||!focusDone.state.sessions?.length||focusDone.state.sessions[0].task!=='Browser linked todo'||focusDone.state.sessions[0].todoId!==todoBefore.id||!focusDone.state.todos?.[0]?.completedAt){
       throw new Error('focus/todo linkage did not finish into local history '+JSON.stringify(focusDone));
     }
+    await page.locator('#focusTask').fill('Unlinked follow-up');
+    await page.locator('#focusStartOpen').click();
+    await page.waitForTimeout(200);
+    const followUp=await page.evaluate(()=>JSON.parse(localStorage.getItem('afterlight-radio:focus-active:v1')||'null'));
+    if(!followUp||followUp.todoId!==null)throw new Error('completed todo leaked into later focus session '+JSON.stringify(followUp));
+    await page.locator('#focusFinish').click();
     await page.locator('#focusRoomClose').click();
 
     r=await page.goto(base+'/window/',{waitUntil:'domcontentloaded',timeout:20000});
