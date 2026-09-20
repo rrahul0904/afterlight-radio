@@ -1,0 +1,96 @@
+name: Vercel Preview
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'account.html'
+      - 'legal/**'
+      - 'scripts/**'
+      - 'api/**'
+      - 'functions/**'
+      - 'neon/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vercel.json'
+      - '.github/workflows/vercel-preview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_zmEezpOKGZy2sH5nqTfO44LD
+      VERCEL_PROJECT_ID: prj_MrkrMOOEYpE5WWrc0dhZeSXuJtUA
+      AFTERLIGHT_RELEASE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Require preview authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo '::error::VERCEL_TOKEN is not configured. No preview deployment was attempted.'
+            exit 1
+          fi
+
+      - name: Verify exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$AFTERLIGHT_RELEASE_SHA"
+          npm install
+          npm test
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@59.11.7
+
+      - name: Pull preview project settings
+        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+
+      - name: Build preview artifact
+        run: vercel build --token="$VERCEL_TOKEN"
+
+      - name: Deploy verified preview artifact
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Preview deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify hosted exact revision and focus runtime
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          LIVE_SHA="$(curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/release.txt" | tr -d '\r\n')"
+          test "$LIVE_SHA" = "$AFTERLIGHT_RELEASE_SHA"
+          curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/rooftop/" -o /tmp/rooftop.html
+          grep -q '/focus-room.js' /tmp/rooftop.html
+          curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/focus-room.js" -o /tmp/focus-room.js
+          grep -q 'afterlight-radio:focus-room:v1' /tmp/focus-room.js
+          grep -q 'data-todo-use' /tmp/focus-room.js
+          curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/audio/rooftop/1.wav" -o /tmp/rooftop.wav
+          test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
+          test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
+          echo "Hosted preview matches exact PR head $AFTERLIGHT_RELEASE_SHA and serves Focus Mode/Todo runtime." >> "$GITHUB_STEP_SUMMARY"
