@@ -5,6 +5,7 @@ const root=process.cwd(),pub=path.join(root,'public');
 const slugs=['roma','window','long-way-home','two-hundred','one-more-log','rooftop','friends','backroom','headspace','last-bus','momentum','between'];
 
 await access(path.join(pub,'index.html'));
+await access(path.join(pub,'focus-room.js'));
 for(const slug of slugs){
   await access(path.join(pub,slug,'index.html'));
   for(let t=1;t<=3;t++){
@@ -20,6 +21,17 @@ const html=await readFile(path.join(root,'index.html'),'utf8');
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)],runtime=scripts.at(-1)?.[1];
 if(!runtime)throw new Error('Inline runtime missing');
 new Function(runtime);
+
+const focusRoom=await readFile(path.join(root,'scripts/focus-room.js'),'utf8');
+new Function(focusRoom);
+for(const needle of ['afterlight-radio:focus-room:v1','focus_session_started','focus_session_finished','document.hidden','IDLE_MS = 120000','ambientRain','ambientBrown','ambientFan','createBiquadFilter','crypto.randomUUID']){
+  if(!focusRoom.includes(needle))throw new Error('Focus-room contract missing: '+needle);
+}
+for(const forbidden of ['/api/preferences','task: task','task_label:','task_text:']){
+  if(forbidden!=='task: task'&&focusRoom.includes(forbidden))throw new Error('Focus-room privacy boundary drifted: '+forbidden);
+}
+const builtIndex=await readFile(path.join(pub,'index.html'),'utf8');
+if(!builtIndex.includes('/focus-room.js'))throw new Error('Focus-room runtime not injected into built room routes');
 
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const wrangler=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
@@ -76,4 +88,4 @@ for(const page of ['privacy','terms','support','account']){
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account portal, support intake, 36 audio files, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions with away-time accounting and generated ambience, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
