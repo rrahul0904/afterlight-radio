@@ -24,7 +24,7 @@ new Function(runtime);
 
 const focusRoom=await readFile(path.join(root,'scripts/focus-room.js'),'utf8');
 new Function(focusRoom);
-for(const needle of ['afterlight-radio:focus-room:v1','focus_session_started','focus_session_finished','document.hidden','IDLE_MS = 120000','ambientRain','ambientBrown','ambientFan','createBiquadFilter','crypto.randomUUID']){
+for(const needle of ['afterlight-radio:focus-room:v1','focus_session_started','focus_session_finished','document.hidden','IDLE_MS = 120000','ambientRain','ambientBrown','ambientFan','createBiquadFilter','crypto.randomUUID','timer-complete','active.plannedMinutes * 60000']){
   if(!focusRoom.includes(needle))throw new Error('Focus-room contract missing: '+needle);
 }
 for(const forbidden of ['/api/preferences','task: task','task_label:','task_text:']){
