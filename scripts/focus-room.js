@@ -79,10 +79,11 @@
     render();
     if (typeof trackEvent === 'function') trackEvent('focus_session_started', { planned_minutes: minutes || null, task_labeled: !!task });
   }
-  function finishSession() {
+  function finishSession(reason) {
+    reason = reason || 'completed';
     if (!active) return;
     accountDelta();
-    var finished = Object.assign({}, active, { endedAt: Date.now(), reason: 'completed' });
+    var finished = Object.assign({}, active, { endedAt: Date.now(), reason: reason });
     state.sessions.unshift(finished);
     state.sessions = state.sessions.slice(0, 250);
     active = null;
@@ -90,6 +91,7 @@
     render();
     if (typeof trackEvent === 'function') {
       trackEvent('focus_session_finished', {
+        reason: reason,
         focused_seconds: Math.round(finished.focusedSeconds || 0),
         idle_seconds: Math.round(finished.idleSeconds || 0),
         task_labeled: !!finished.task
