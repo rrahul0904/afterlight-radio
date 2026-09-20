@@ -92,6 +92,33 @@ for(const [name,type,contextOptions] of targets){
     await page.screenshot({path:`${shotDir}/${name}-auth-modal.png`,fullPage:true});
     await page.locator('#accountClose').click();
 
+    await page.locator('#focusModeBtn').waitFor({state:'visible',timeout:5000});
+    await page.locator('#focusModeBtn').click();
+    await page.locator('#focusRoomDialog').waitFor({state:'visible',timeout:5000});
+    await page.locator('#focusTask').fill('Browser focus smoke');
+    await page.locator('#focusStartOpen').click();
+    await page.waitForTimeout(1200);
+    const focusRunning=await page.evaluate(()=>({
+      active:document.querySelector('#focusModeBtn')?.classList.contains('active'),
+      stored:JSON.parse(localStorage.getItem('afterlight-radio:focus-active:v1')||'null')
+    }));
+    if(!focusRunning.active||!focusRunning.stored||focusRunning.stored.task!=='Browser focus smoke'||focusRunning.stored.focusedSeconds<=0){
+      throw new Error('focus session did not persist locally '+JSON.stringify(focusRunning));
+    }
+    await page.locator('#ambientBrown').fill('35');
+    const ambient=await page.evaluate(()=>JSON.parse(localStorage.getItem('afterlight-radio:focus-room:v1')||'{}').ambient?.brown);
+    if(Math.abs((ambient||0)-0.35)>.01)throw new Error('ambient mix did not persist locally '+ambient);
+    await page.screenshot({path:`${shotDir}/${name}-focus-mode.png`,fullPage:true});
+    await page.locator('#focusFinish').click();
+    const focusDone=await page.evaluate(()=>({
+      active:localStorage.getItem('afterlight-radio:focus-active:v1'),
+      sessions:JSON.parse(localStorage.getItem('afterlight-radio:focus-room:v1')||'{}').sessions||[]
+    }));
+    if(focusDone.active||!focusDone.sessions.length||focusDone.sessions[0].task!=='Browser focus smoke'){
+      throw new Error('focus session did not finish into local history '+JSON.stringify(focusDone));
+    }
+    await page.locator('#focusRoomClose').click();
+
     r=await page.goto(base+'/window/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('window status '+r?.status());
     await page.locator('#paintedScene svg').waitFor({state:'visible',timeout:8000});
