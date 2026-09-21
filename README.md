@@ -11,13 +11,13 @@ Afterlight is a premium consumer listening product: twelve illustrated places wi
 - dedicated Neon Postgres `afterlight` database in `us-east-2`
 - managed Neon Auth, proxied first-party through `/api/auth/*`
 - 12 clean room routes
-- 36 build-generated original WAV tracks (3 per room) rendered by Composition Engine v2 with distinct arrangements and manifest provenance
+- 36 build-generated original stereo WAV tracks (3 per room) rendered by Composition Engine v3 with distinct arrangements and manifest provenance
 - cross-device saved places and listening preferences
 - Stripe-hosted monthly and annual checkout links
 - verified Stripe webhooks drive premium entitlements and cancellation state
 - first-party analytics, client-error capture and persisted support requests
 - optional disabled-by-default server-side Navidrome/Subsonic library adapter
-- Privacy, Terms, Support and Account portal surfaces
+- Privacy, Terms, Support, Account and protected Admin portal surfaces
 - GitHub Actions CI, production verification, account lifecycle and browser-matrix checks
 
 Cloudflare support remains checked in as an **optional manual mirror**; it is not the production release target.
@@ -38,6 +38,7 @@ The browser never decides whether a customer is premium. Premium access comes fr
 - Stripe webhook readiness
 - zero-dollar live subscription lifecycle: `active` entitlement reached Neon, cancellation propagated back as `canceled`
 - synthetic production identities are removed after verification
+- admin directory reads the canonical Neon Auth user table rather than only app profile rows
 
 ## Local
 
@@ -54,5 +55,6 @@ See:
 - [docs/MVP_STATUS.md](docs/MVP_STATUS.md)
 - [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)
 - [docs/MUSIC_PIPELINE.md](docs/MUSIC_PIPELINE.md)
+- [docs/ENVIRONMENT.md#admin-portal](docs/ENVIRONMENT.md#admin-portal)
 
 The optional Cloudflare mirror can be invoked manually from `.github/workflows/deploy-cloudflare.yml` after Cloudflare credentials are configured.
