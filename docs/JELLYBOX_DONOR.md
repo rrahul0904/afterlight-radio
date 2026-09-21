@@ -57,7 +57,7 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 `scripts/offline-worker.js`
 - accepts bounded same-origin cache/remove commands
 - caches full room WAV files plus the shared JavaScript shell required for a true cold offline start
-- serves cached runtime assets before network when available
+- keeps the runtime shell network-first while online so deployments can update normally, then falls back to cached shell assets when offline
 - serves cached WAV byte ranges with HTTP 206 semantics
 - falls back to cached room HTML when navigation is offline
 
