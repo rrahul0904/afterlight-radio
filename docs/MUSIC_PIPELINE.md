@@ -10,9 +10,9 @@ Afterlight is different because it promises a listening catalog of its own. That
 
 Afterlight now renders 36 original instrumental tracks at build time with `scripts/audio-library.mjs`.
 
-Composition Engine v2 gives every room:
+Composition Engine v3 gives every room:
 - its own BPM, key/mode, style, warmth, groove, ambience, and instrument balance
-- three distinct arrangements: **warm narrative**, **rhythmic lift**, and **late-night drift**
+- three distinct production arrangements: **arrival arc**, **motion arc**, and **late-night arc**
 - voiced chord progressions with changing inversions
 - deterministic melodic motifs and answer phrases
 - electric-piano, muted-pluck/guitar, bass, restrained drums, fills, tape/room texture, wow/flutter, and multi-tap reverb
@@ -32,7 +32,7 @@ The clean-room rule is:
 
 ## Higher-fidelity path
 
-Composition Engine v2 is the reproducible baseline, not the ceiling. A later catalog pipeline can replace individual WAV masters with higher-fidelity original productions while keeping the same stable track IDs and manifest contract. The preferred production workflow is:
+Composition Engine v3 is the reproducible baseline, not the ceiling. A later catalog pipeline can replace individual WAV masters with higher-fidelity original productions while keeping the same stable track IDs and manifest contract. The preferred production workflow is:
 
 1. compose/render original masters outside the request path;
 2. run loudness, clipping, duration, silence, and uniqueness QC;
@@ -42,3 +42,41 @@ Composition Engine v2 is the reproducible baseline, not the ceiling. A later cat
 6. certify seeking, offline packages, queue restore, and playback on the exact hosted revision.
 
 Do not generate expensive music during a listener request. Music generation belongs in a build/content pipeline; playback belongs in the product runtime.
+
+
+## Music Lab: candidates are not catalog
+
+The production build still emits the stable 36-track catalog. Music Lab is a separate offline/content-production path used to improve the catalog deliberately.
+
+Run a long-form audition batch for one room:
+
+```bash
+npm run music:lab -- --room rooftop --count 4 --bars 48
+```
+
+The output is written under `.music-lab/<room>/` and is intentionally gitignored. A batch contains:
+
+- multiple long-form stereo WAV candidates generated from distinct deterministic seeds;
+- `manifest.json` with hashes, provenance and technical measurements;
+- `review.html` for blind listening and scoring;
+- `review-template.json` for manual/second-review workflows;
+- `lab-summary.json`.
+
+The review package tracks Room fit, Musicality, Low fatigue, Variation and Production polish. It also records actual listening time. A technical pass does **not** mean the candidate is approved.
+
+### Promotion gate
+
+Human review policy is versioned in `music/catalog-policy.json`.
+
+Beta shortlisting requires at least one reviewer and meaningful listening time. Public-production approval requires at least two reviewers, stronger score thresholds and explicit shortlist votes. Any technical failure, reject vote, insufficient listening coverage or uncleared provenance blocks promotion.
+
+Example:
+
+```bash
+npm run music:review-gate -- \
+  --stage production \
+  --manifest .music-lab/rooftop/manifest.json \
+  --reviews reviewer-a.json,reviewer-b.json
+```
+
+This gate is deliberately separate from the normal application CI: human music quality cannot be proven by unit tests.
