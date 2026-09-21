@@ -53,16 +53,13 @@ Preferred production setup is Stripe's hosted customer-portal login/session flow
 
 Support does **not** depend on an email environment variable. `/support/` submits directly to `/api/support`, which persists the request in the production database.
 
-## Optional Cloudflare mirror
+## Cloudflare release mirror
 
-`.github/workflows/deploy-cloudflare.yml` is manual-only. It does not run on normal pushes and is not part of Vercel production readiness.
+Vercel remains the canonical production hostname, but `.github/workflows/deploy-cloudflare.yml` now provides a second hosted release path. It runs on relevant pushes to `main` and can also be invoked manually.
 
-If a Cloudflare mirror is desired later, configure:
+The mirror is fail-closed: it requires repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, runs the full test suite, stamps `public/release.txt` with the exact Git SHA, verifies the v2 36-track music manifest, and only then deploys with Wrangler.
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
-
-and invoke the workflow manually.
+This mirror is useful for exact-revision launch verification when Vercel Git auto-deploy or the repository `VERCEL_TOKEN` path is unavailable. It does not change the canonical Vercel domain or the Neon production backend contract.
 
 ## Optional external music library
 
