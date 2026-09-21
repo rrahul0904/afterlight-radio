@@ -33,7 +33,7 @@ function targetUrl(req){
 
 function proxyHeaders(req){
   const h=new Headers({Accept:req.headers.accept||'application/json','X-Afterlight-Origin':frontendOrigin(req)});
-  for(const key of ['cookie','content-type','user-agent','stripe-signature']){
+  for(const key of ['cookie','content-type','user-agent','stripe-signature','range','if-range']){
     const value=req.headers[key];if(value)h.set(key,Array.isArray(value)?value.join(', '):String(value));
   }
   return h;
