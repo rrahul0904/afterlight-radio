@@ -12,6 +12,8 @@ on:
       - 'scripts/queue-runtime.js'
       - 'scripts/library-browser.js'
       - 'scripts/audio-library.mjs'
+      - 'scripts/preview-server.mjs'
+      - 'package.json'
       - 'scripts/browser-smoke.mjs'
       - '.github/workflows/browser-matrix.yml'
   push:
