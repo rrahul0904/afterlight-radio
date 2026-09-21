@@ -1,10 +1,21 @@
 name: Deploy Vercel Production
 
-# Manual fallback for operators with a VERCEL_TOKEN. Production promotion can also
-# be performed through the connected Vercel deployment API, but this workflow must
-# never report success when authorization is missing.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'account.html'
+      - 'legal/**'
+      - 'scripts/**'
+      - 'api/**'
+      - 'functions/**'
+      - 'neon/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vercel.json'
+      - '.github/workflows/deploy-vercel.yml'
 
 permissions:
   contents: read
@@ -16,7 +27,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_zmEezpOKGZy2sH5nqTfO44LD
@@ -43,6 +54,18 @@ jobs:
           npm install
           npm test
 
+      - name: Verify generated music catalog before deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(tr -d '\r\n' < public/release.txt)" = "$AFTERLIGHT_RELEASE_SHA"
+          node - <<'NODE'
+          const fs=require('fs');
+          const m=JSON.parse(fs.readFileSync('public/music-manifest.json','utf8'));
+          if(m.version!==2||m.tracks?.length!==36) throw new Error('Composition Engine v2 manifest is incomplete');
+          if(!m.tracks.every(t=>t.generator==='afterlight-composition-engine-v2')) throw new Error('Unexpected music generator provenance');
+          NODE
+
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@59.11.7
 
@@ -61,15 +84,25 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Production deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify deployed revision and audio artifact
+      - name: Verify deployed revision, music catalog and audio
         shell: bash
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
-          LIVE_SHA="$(curl --fail --silent --show-error --retry 6 --retry-all-errors "$DEPLOYMENT_URL/release.txt" | tr -d '\r\n')"
+          LIVE_SHA="$(curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/release.txt" | tr -d '\r\n')"
           test "$LIVE_SHA" = "$GITHUB_SHA"
-          curl --fail --silent --show-error --retry 6 --retry-all-errors "$DEPLOYMENT_URL/audio/rooftop/1.wav" -o /tmp/rooftop.wav
+          curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/music-manifest.json" -o /tmp/music-manifest.json
+          node - <<'NODE'
+          const fs=require('fs');
+          const m=JSON.parse(fs.readFileSync('/tmp/music-manifest.json','utf8'));
+          if(m.version!==2||m.tracks?.length!==36) throw new Error('Hosted music manifest is not Composition Engine v2');
+          if(m.tracks.find(t=>t.id==='rooftop:1')?.title!=='Orange on the parapet') throw new Error('Hosted Rooftop catalog drift');
+          NODE
+          curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/audio/rooftop/1.wav" -o /tmp/rooftop.wav
           test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
           test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
-          echo "Exact revision $GITHUB_SHA and Rooftop audio artifact are live." >> "$GITHUB_STEP_SUMMARY"
+          RANGE_HEADERS="$(curl --fail --silent --show-error --retry 8 --retry-all-errors -D - -o /tmp/range.wav -H 'Range: bytes=100-199' "$DEPLOYMENT_URL/audio/rooftop/1.wav")"
+          test "$(wc -c < /tmp/range.wav)" -eq 100
+          printf '%s' "$RANGE_HEADERS" | grep -qi '^content-range: bytes 100-199/'
+          echo "Exact revision $GITHUB_SHA, Composition Engine v2 manifest, Rooftop audio and byte-range seeking are live." >> "$GITHUB_STEP_SUMMARY"
