@@ -153,7 +153,8 @@ for(const [name,type,contextOptions] of targets){
       return {status:r.status,type:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength,manifest:await m.json()};
     });
     if(![200,206].includes(wav.status)||!/^audio\//i.test(wav.type||'')||wav.bytes<1000000)throw new Error('WAV failed '+JSON.stringify(wav));
-    if(wav.manifest?.version!==2||wav.manifest?.tracks?.length!==36||wav.manifest.tracks.find(x=>x.id==='rooftop:1')?.generator!=='afterlight-composition-engine-v2')throw new Error('music manifest v2 missing on built runtime');
+    const rooftopManifest=wav.manifest?.tracks?.find(x=>x.id==='rooftop:1');
+    if(wav.manifest?.version!==3||wav.manifest?.thirdPartyAudio!==false||wav.manifest?.tracks?.length!==36||rooftopManifest?.generator!=='afterlight-composition-engine-v3'||rooftopManifest?.channels!==2||rooftopManifest?.bars!==12)throw new Error('music manifest v3 missing on built runtime');
     const support=await page.evaluate(()=>audio.canPlayType('audio/wav'));
     if(!support)throw new Error('browser reports no WAV support');
     await page.locator('#play').click({timeout:8000});
