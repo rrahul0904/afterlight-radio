@@ -10,7 +10,7 @@ const injectScript=(html,src)=>html.replace('</body>',`<script src="${src}"></sc
 await rm(out,{recursive:true,force:true});
 await mkdir(out,{recursive:true});
 const sourceHtml=await readFile(path.join(root,'index.html'),'utf8');
-const html=injectScript(injectScript(injectScript(injectScript(injectScript(sourceHtml,'/runtime-enhancements.js'),'/mobile-visual-polish.js'),'/audio-continuity.js'),'/focus-room.js'),'/library-runtime.js');
+const html=injectScript(injectScript(injectScript(injectScript(injectScript(injectScript(sourceHtml,'/runtime-enhancements.js'),'/mobile-visual-polish.js'),'/audio-continuity.js'),'/focus-room.js'),'/library-runtime.js'),'/queue-runtime.js');
 const runtimeEnhancements=await readFile(path.join(root,'scripts','runtime-enhancements.js'),'utf8');
 const mobileVisualPolish=await readFile(path.join(root,'scripts','mobile-visual-polish.js'),'utf8');
 const audioContinuity=await readFile(path.join(root,'scripts','audio-continuity.js'),'utf8');
@@ -18,6 +18,7 @@ const accountEnhancements=await readFile(path.join(root,'scripts','account-enhan
 const focusRoom=await readFile(path.join(root,'scripts','focus-room.js'),'utf8');
 const libraryRuntime=await readFile(path.join(root,'scripts','library-runtime.js'),'utf8');
 const offlineWorker=await readFile(path.join(root,'scripts','offline-worker.js'),'utf8');
+const queueRuntime=await readFile(path.join(root,'scripts','queue-runtime.js'),'utf8');
 await writeFile(path.join(out,'runtime-enhancements.js'),runtimeEnhancements);
 await writeFile(path.join(out,'mobile-visual-polish.js'),mobileVisualPolish);
 await writeFile(path.join(out,'audio-continuity.js'),audioContinuity);
@@ -25,6 +26,7 @@ await writeFile(path.join(out,'account-enhancements.js'),accountEnhancements);
 await writeFile(path.join(out,'focus-room.js'),focusRoom);
 await writeFile(path.join(out,'library-runtime.js'),libraryRuntime);
 await writeFile(path.join(out,'offline-worker.js'),offlineWorker);
+await writeFile(path.join(out,'queue-runtime.js'),queueRuntime);
 await writeFile(path.join(out,'index.html'),html);
 
 for(const slug of slugs){
@@ -58,4 +60,4 @@ await writeFile(path.join(out,'_headers'),`/*
 
 const count=await generateAudio(out);
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
-console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library runtime, three-track continuity, billing-support fallback, account portal, 3 legal pages and ${count} audio files (sample ${sample.size} bytes)`);
+console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue runtime, three-track continuity, billing-support fallback, account portal, 3 legal pages and ${count} audio files (sample ${sample.size} bytes)`);
