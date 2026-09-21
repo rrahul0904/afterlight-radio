@@ -14,6 +14,6 @@ await access(new URL('../public/runtime-enhancements.js',import.meta.url));
 await access(new URL('../public/account-enhancements.js',import.meta.url));
 const built=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
 const builtAccount=await readFile(new URL('../public/account/index.html',import.meta.url),'utf8');
-if(!built.includes('<script src="/runtime-enhancements.js?v=offline2"></script>'))throw new Error('Built player is missing versioned runtime enhancements');
-if(!builtAccount.includes('<script src="/account-enhancements.js?v=offline2"></script>'))throw new Error('Built account portal is missing versioned billing fallback enhancements');
+if(!built.includes('<script src="/runtime-enhancements.js?v=offline3"></script>'))throw new Error('Built player is missing versioned runtime enhancements');
+if(!builtAccount.includes('<script src="/account-enhancements.js?v=offline3"></script>'))throw new Error('Built account portal is missing versioned billing fallback enhancements');
 console.log('PASS: Media Session controls, fatal-vs-output audio resilience and no-dead-end billing support fallback');
