@@ -24,6 +24,7 @@ The Neon Function owns privileged backend work:
 - support requests
 - Stripe webhook verification
 - premium entitlement synchronization
+- optional external music-library search and streaming proxy
 
 Vercel serves the product UI and proxies `/api/*` to the Neon Function so Auth cookies remain first-party on the Afterlight domain.
 
@@ -62,6 +63,20 @@ If a Cloudflare mirror is desired later, configure:
 - `CLOUDFLARE_ACCOUNT_ID`
 
 and invoke the workflow manually.
+
+## Optional external music library
+
+The JellyBox-inspired Navidrome/Subsonic adapter is **disabled by default**. It is enabled only when all four server-side secrets are present:
+
+- `NAVIDROME_BASE_URL` — HTTPS server origin; localhost/private-network targets are rejected
+- `NAVIDROME_USERNAME`
+- `NAVIDROME_TOKEN` — precomputed Subsonic token, not the raw password
+- `NAVIDROME_SALT` — salt paired with the precomputed token
+- optional `NAVIDROME_CLIENT_NAME` — defaults to `afterlight-radio`
+
+Do **not** store `NAVIDROME_PASSWORD` in the application environment. The browser never receives provider credentials. Search returns normalized metadata only; artwork and audio are proxied through first-party `/api/library/provider/*` routes. Stream requests preserve HTTP `Range` semantics so seeking works without exposing provider query credentials.
+
+All provider routes require an authenticated Afterlight session. Configuration/status is exposed only as a boolean capability through `/api/config`.
 
 ## Readiness endpoints
 
