@@ -11,6 +11,7 @@ on:
       - 'scripts/offline-worker.js'
       - 'scripts/queue-runtime.js'
       - 'scripts/library-browser.js'
+      - 'scripts/openstream-browser.js'
       - 'scripts/browser-smoke.mjs'
       - '.github/workflows/browser-matrix.yml'
   push:
@@ -26,6 +27,7 @@ on:
       - 'scripts/offline-worker.js'
       - 'scripts/queue-runtime.js'
       - 'scripts/library-browser.js'
+      - 'scripts/openstream-browser.js'
       - 'scripts/mobile-visual-polish.js'
       - 'scripts/account-enhancements.js'
       - 'scripts/audio-library.mjs'
