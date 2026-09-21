@@ -1,3 +1,5 @@
+import {handleOpenStreamApi,isOpenStreamPath} from '../src/openstream-provider.js';
+
 const BACKEND='https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech';
 
 export const config={api:{bodyParser:false}};
@@ -15,7 +17,7 @@ function frontendOrigin(req){
   return proto+'://'+host;
 }
 
-function targetUrl(req){
+function requestRoute(req){
   const path=req.query?.path;
   let route='/api';
   if(path!==undefined){
@@ -28,8 +30,9 @@ function targetUrl(req){
     if(Array.isArray(value))for(const item of value)qs.append(key,String(item));
     else if(value!==undefined)qs.set(key,String(value));
   }
-  return BACKEND+route+(qs.size?'?'+qs.toString():'');
+  return route+(qs.size?'?'+qs.toString():'');
 }
+function targetUrl(req){return BACKEND+requestRoute(req)}
 
 function proxyHeaders(req){
   const h=new Headers({Accept:req.headers.accept||'application/json','X-Afterlight-Origin':frontendOrigin(req)});
@@ -39,18 +42,39 @@ function proxyHeaders(req){
   return h;
 }
 
+async function writeResponse(res,response){
+  res.statusCode=response.status;
+  const cookies=response.headers.getSetCookie?.()||[];
+  for(const [key,value] of response.headers){
+    if(key.toLowerCase()==='set-cookie'||key.toLowerCase()==='content-length')continue;
+    res.setHeader(key,value);
+  }
+  if(cookies.length)res.setHeader('Set-Cookie',cookies);
+  res.end(Buffer.from(await response.arrayBuffer()));
+}
+
+async function openStreamResponse(req,body){
+  const auth=await fetch(BACKEND+'/api/me',{method:'GET',headers:proxyHeaders(req),redirect:'manual'});
+  if(!auth.ok){
+    const status=auth.status===401?401:503;
+    return new Response(JSON.stringify({error:status===401?'Sign in required':'Account service unavailable'}),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
+  }
+  const route=requestRoute(req);
+  const headers=new Headers({Accept:req.headers.accept||'application/json'});
+  if(req.headers['content-type'])headers.set('Content-Type',String(req.headers['content-type']));
+  const init={method:req.method,headers,redirect:'manual'};
+  if(body) init.body=body;
+  return handleOpenStreamApi(new Request(frontendOrigin(req)+route,init),process.env);
+}
+
 export default async function handler(req,res){
   try{
     const body=await rawBody(req);
-    const response=await fetch(targetUrl(req),{method:req.method,headers:proxyHeaders(req),body,duplex:body?'half':undefined,redirect:'manual'});
-    res.statusCode=response.status;
-    const cookies=response.headers.getSetCookie?.()||[];
-    for(const [key,value] of response.headers){
-      if(key.toLowerCase()==='set-cookie'||key.toLowerCase()==='content-length')continue;
-      res.setHeader(key,value);
-    }
-    if(cookies.length)res.setHeader('Set-Cookie',cookies);
-    res.end(Buffer.from(await response.arrayBuffer()));
+    const route=requestRoute(req);
+    const response=isOpenStreamPath(new URL(frontendOrigin(req)+route).pathname)
+      ? await openStreamResponse(req,body)
+      : await fetch(targetUrl(req),{method:req.method,headers:proxyHeaders(req),body,duplex:body?'half':undefined,redirect:'manual'});
+    await writeResponse(res,response);
   }catch(error){
     console.error(error);
     res.statusCode=502;
