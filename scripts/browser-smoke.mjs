@@ -198,7 +198,7 @@ for(const [name,type,contextOptions] of targets){
         await page.locator('#queueBtn').waitFor({state:'visible',timeout:5000});
         await page.locator('#libraryBtn').waitFor({state:'visible',timeout:5000});
         const offlineRuntime=await page.evaluate(async()=>{
-          const shell=await fetch('/library-browser.js',{cache:'reload'});
+          const shell=await fetch('/library-browser.js?v=offline2',{cache:'reload'});
           const range=await fetch('/audio/rooftop/1.wav',{headers:{Range:'bytes=100-199'},cache:'reload'});
           return {
             online:navigator.onLine,
