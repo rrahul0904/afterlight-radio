@@ -36,9 +36,27 @@ async function providerJson(endpoint,params={}){
     return root;
   }finally{clearTimeout(timer)}
 }
+function validProviderId(value){const id=String(value||'').trim();return id&&id.length<=200&&/^[A-Za-z0-9._:-]+$/.test(id)?id:''}
 function normalizedProviderTrack(song){
   if(!song?.id)return null;
-  return {id:'navidrome:'+String(song.id),title:String(song.title||'Untitled').slice(0,300),artist:String(song.artist||'').slice(0,300),album:String(song.album||'').slice(0,300),duration:Number.isFinite(Number(song.duration))?Number(song.duration):0,artwork:song.coverArt?'/api/library/provider/artwork?id='+encodeURIComponent(String(song.coverArt)):'',streamUrl:'/api/library/provider/stream?id='+encodeURIComponent(String(song.id)),provider:'navidrome',providerTrackId:String(song.id)};
+  const providerTrackId=String(song.id);
+  return {id:'navidrome:'+providerTrackId,title:String(song.title||'Untitled').slice(0,300),artist:String(song.artist||'').slice(0,300),album:String(song.album||'').slice(0,300),duration:Number.isFinite(Number(song.duration))?Number(song.duration):0,artwork:song.coverArt?'/api/library/provider/artwork?id='+encodeURIComponent(String(song.coverArt)):'',streamUrl:'/api/library/provider/stream?id='+encodeURIComponent(providerTrackId),lyricsUrl:'/api/library/provider/lyrics?id='+encodeURIComponent(providerTrackId),provider:'navidrome',providerTrackId};
+}
+function normalizedProviderLyrics(root,providerTrackId){
+  const source=Array.isArray(root?.lyricsList?.structuredLyrics)?root.lyricsList.structuredLyrics:[],tracks=[];let remainingLines=4000;
+  for(const entry of source.slice(0,8)){
+    if(remainingLines<=0)break;
+    const rawLines=Array.isArray(entry?.line)?entry.line:[],lines=[];
+    for(const line of rawLines.slice(0,remainingLines)){
+      const text=String(line?.value??'').slice(0,2000),start=Number(line?.start);
+      if(!text&&!Number.isFinite(start))continue;
+      lines.push({startMs:Number.isFinite(start)&&start>=0?Math.round(start):null,text});
+    }
+    remainingLines-=lines.length;
+    const offset=Number(entry?.offset),rawLang=String(entry?.lang||'und').trim().slice(0,32);
+    tracks.push({lang:rawLang==='xxx'?'und':rawLang||'und',synced:!!entry?.synced,offsetMs:Number.isFinite(offset)?Math.max(-600000,Math.min(600000,Math.round(offset))):0,displayArtist:String(entry?.displayArtist||'').slice(0,300),displayTitle:String(entry?.displayTitle||'').slice(0,300),lines});
+  }
+  return {provider:'navidrome',providerTrackId,tracks,available:tracks.some(track=>track.lines.length>0)};
 }
 async function providerStatus(req){
   const a=await session(req);if(!a?.user)return json({error:'Sign in required'},401);
@@ -52,10 +70,17 @@ async function providerSearch(req,url){
   try{const root=await providerJson('search3',{query:q,songCount:50,albumCount:0,artistCount:0}),songs=Array.isArray(root.searchResult3?.song)?root.searchResult3.song:[],tracks=songs.map(normalizedProviderTrack).filter(Boolean);return json({provider:'navidrome',query:q,tracks})}
   catch(error){return json({error:error?.name==='AbortError'?'External music library timed out':'External music library request failed'},502)}
 }
+async function providerLyrics(req,url){
+  const a=await session(req);if(!a?.user)return json({error:'Sign in required'},401);
+  if(!providerConfigured())return json({error:'External music library is not configured'},503);
+  const id=validProviderId(url.searchParams.get('id'));if(!id)return json({error:'Invalid media id'},400);
+  try{const root=await providerJson('getLyricsBySongId',{id});return json(normalizedProviderLyrics(root,id))}
+  catch(error){return json({error:error?.name==='AbortError'?'External lyrics request timed out':'External lyrics request failed'},502)}
+}
 async function providerBinary(req,url,kind){
   const a=await session(req);if(!a?.user)return json({error:'Sign in required'},401);
   if(!providerConfigured())return json({error:'External music library is not configured'},503);
-  const id=String(url.searchParams.get('id')||'').trim();if(!id||id.length>200||!/^[A-Za-z0-9._:-]+$/.test(id))return json({error:'Invalid media id'},400);
+  const id=validProviderId(url.searchParams.get('id'));if(!id)return json({error:'Invalid media id'},400);
   const headers=new Headers();if(kind==='stream'){const range=req.headers.get('Range');if(range)headers.set('Range',range)}
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
   try{
@@ -102,6 +127,6 @@ async function userByCustomer(customer){if(!customer)return null;return (await s
 async function syncSubscription(obj){let userId=obj.metadata?.user_id||await userByCustomer(typeof obj.customer==='string'?obj.customer:obj.customer?.id);if(!userId)return;const customer=typeof obj.customer==='string'?obj.customer:obj.customer?.id||null,period=obj.current_period_end?new Date(obj.current_period_end*1000).toISOString():null;await sql`insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,plan,status,current_period_end,cancel_at_period_end,updated_at) values (${userId}::uuid,${customer},${obj.id},${obj.metadata?.plan||'unknown'},${obj.status},${period}::timestamptz,${!!obj.cancel_at_period_end},now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,stripe_subscription_id=excluded.stripe_subscription_id,plan=excluded.plan,status=excluded.status,current_period_end=excluded.current_period_end,cancel_at_period_end=excluded.cancel_at_period_end,updated_at=now()`;if(customer)await sql`insert into profiles (user_id,stripe_customer_id,updated_at) values (${userId}::uuid,${customer},now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,updated_at=now()`}
 async function webhook(req){const raw=await req.text(),secret=process.env.STRIPE_WEBHOOK_SECRET;if(!secret||!await verifyStripe(raw,req.headers.get('Stripe-Signature'),secret))return json({error:'Invalid signature'},400);const event=JSON.parse(raw),obj=event.data?.object||{};if(event.type==='checkout.session.completed'){const userId=obj.client_reference_id||obj.metadata?.user_id,customer=typeof obj.customer==='string'?obj.customer:obj.customer?.id,subId=typeof obj.subscription==='string'?obj.subscription:obj.subscription?.id,plan=obj.metadata?.plan||'unknown';if(userId&&customer){await sql`insert into profiles (user_id,stripe_customer_id,updated_at) values (${userId}::uuid,${customer},now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,updated_at=now()`;if(subId)await sql`insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,plan,status,updated_at) values (${userId}::uuid,${customer},${subId},${plan},'active',now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,stripe_subscription_id=excluded.stripe_subscription_id,plan=excluded.plan,status='active',updated_at=now()`}}if(['customer.subscription.created','customer.subscription.updated','customer.subscription.deleted'].includes(event.type))await syncSubscription(obj);return json({received:true})}
 
-async function route(req){const url=new URL(req.url),p=url.pathname;if(p.startsWith('/api/auth/'))return authProxy(req,url);if(p==='/api/health')return json({ok:true,configured:configured(),backend:'neon-function'});if(p==='/api/ready'){const c=configured();let database=false;if(c.data)try{database=(await sql`select 1 as ok`)[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout&&c.webhook,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon-function'})}if(p==='/api/config'){const c=configured();return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEnabled:c.data,externalLibraryEnabled:c.externalLibrary})}if(p==='/api/me'&&req.method==='GET')return me(req);if(p==='/api/preferences'&&['GET','PUT'].includes(req.method))return preferences(req);if(p==='/api/checkout'&&req.method==='POST')return checkout(req);if(p==='/api/portal'&&req.method==='POST')return portal(req);if(p==='/api/events'&&req.method==='POST')return events(req);if(p==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req);if(p==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,url);if(p==='/api/library/provider/stream'&&['GET','HEAD'].includes(req.method))return providerBinary(req,url,'stream');if(p==='/api/library/provider/artwork'&&['GET','HEAD'].includes(req.method))return providerBinary(req,url,'artwork');if(p==='/api/support'&&req.method==='POST')return support(req);if(p==='/api/stripe/webhook'&&req.method==='POST')return webhook(req);return json({error:'Not found'},404)}
+async function route(req){const url=new URL(req.url),p=url.pathname;if(p.startsWith('/api/auth/'))return authProxy(req,url);if(p==='/api/health')return json({ok:true,configured:configured(),backend:'neon-function'});if(p==='/api/ready'){const c=configured();let database=false;if(c.data)try{database=(await sql`select 1 as ok`)[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout&&c.webhook,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon-function'})}if(p==='/api/config'){const c=configured();return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEnabled:c.data,externalLibraryEnabled:c.externalLibrary})}if(p==='/api/me'&&req.method==='GET')return me(req);if(p==='/api/preferences'&&['GET','PUT'].includes(req.method))return preferences(req);if(p==='/api/checkout'&&req.method==='POST')return checkout(req);if(p==='/api/portal'&&req.method==='POST')return portal(req);if(p==='/api/events'&&req.method==='POST')return events(req);if(p==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req);if(p==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,url);if(p==='/api/library/provider/lyrics'&&req.method==='GET')return providerLyrics(req,url);if(p==='/api/library/provider/stream'&&['GET','HEAD'].includes(req.method))return providerBinary(req,url,'stream');if(p==='/api/library/provider/artwork'&&['GET','HEAD'].includes(req.method))return providerBinary(req,url,'artwork');if(p==='/api/support'&&req.method==='POST')return support(req);if(p==='/api/stripe/webhook'&&req.method==='POST')return webhook(req);return json({error:'Not found'},404)}
 
 export default{async fetch(request){try{return await route(request)}catch(error){console.error(error);return json({error:'Internal server error'},500)}}};
