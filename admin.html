@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Afterlight Admin</title>
+<meta name="description" content="Private Afterlight operator console for users, subscriptions, listening activity and support.">
+<style>
+:root{--paper:#eee6d8;--ink:#201c17;--muted:#675e53;--line:#c9bdac;--card:#f7f1e7;--good:#315f45;--warn:#8a5a21;--danger:#873f3f}
+*{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{margin:0}
+a{color:inherit}.shell{min-height:100vh}.top{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 28px;border-bottom:1px solid rgba(32,28,23,.14);position:sticky;top:0;z-index:3;background:rgba(238,230,216,.94);backdrop-filter:blur(18px)}
+.brand{text-decoration:none;font-size:11px;letter-spacing:.2em;text-transform:uppercase}.topnav{display:flex;gap:18px;align-items:center;font-size:11px}.topnav a{text-decoration:none}
+main{width:min(1420px,calc(100% - 36px));margin:0 auto;padding:44px 0 90px}.eyebrow{font-size:10px;letter-spacing:.17em;text-transform:uppercase;color:var(--muted)}
+h1{font:400 clamp(46px,7vw,84px)/.93 Georgia,serif;letter-spacing:-.055em;margin:12px 0 14px}.lede{color:var(--muted);line-height:1.6;max-width:760px;margin:0}
+.notice{margin-top:28px;padding:16px 18px;border:1px solid rgba(32,28,23,.14);background:rgba(247,241,231,.75);font-size:13px;line-height:1.5}
+.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:30px 0}.metric{border:1px solid rgba(32,28,23,.12);background:var(--card);padding:18px;min-height:112px}.metric .k{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}.metric .v{font:400 34px/1 Georgia,serif;margin-top:20px}
+.panel{border:1px solid rgba(32,28,23,.12);background:var(--card)}.toolbar{display:grid;grid-template-columns:minmax(220px,1fr) repeat(3,minmax(130px,.3fr));gap:10px;padding:16px;border-bottom:1px solid rgba(32,28,23,.1)}
+input,select{width:100%;font:inherit;color:var(--ink);background:#fbf7f0;border:1px solid var(--line);padding:11px 12px}input:focus,select:focus{outline:2px solid rgba(32,28,23,.16);outline-offset:1px}
+.tablewrap{overflow:auto}.users{width:100%;border-collapse:collapse;min-width:1060px}.users th,.users td{text-align:left;padding:13px 14px;border-bottom:1px solid rgba(32,28,23,.08);vertical-align:top}.users th{font-size:9px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);position:sticky;top:0;background:var(--card)}.users td{font-size:12px}.users tr[data-user]{cursor:pointer}.users tr[data-user]:hover{background:#f1e8da}
+.name{font:400 16px/1.15 Georgia,serif}.sub{display:block;color:var(--muted);font-size:10px;margin-top:4px;max-width:280px;overflow:hidden;text-overflow:ellipsis}.pill{display:inline-flex;align-items:center;border:1px solid rgba(32,28,23,.18);border-radius:999px;padding:5px 8px;font-size:9px;white-space:nowrap}.pill.good{color:var(--good);border-color:rgba(49,95,69,.35)}.pill.warn{color:var(--warn);border-color:rgba(138,90,33,.35)}.pill.danger{color:var(--danger);border-color:rgba(135,63,63,.35)}
+.empty{padding:34px;text-align:center;color:var(--muted)}.pager{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px}.pager button,.close{font:inherit;font-size:11px;border:1px solid var(--ink);background:transparent;color:var(--ink);padding:9px 12px;cursor:pointer}.pager button:disabled{opacity:.35;cursor:not-allowed}
+dialog{width:min(620px,calc(100vw - 24px));border:0;padding:0;background:var(--card);color:var(--ink);box-shadow:0 30px 90px rgba(0,0,0,.35)}dialog::backdrop{background:rgba(20,17,13,.55);backdrop-filter:blur(7px)}.detail{padding:24px}.detailhead{display:flex;justify-content:space-between;gap:16px}.detail h2{font:400 30px/1 Georgia,serif;margin:4px 0 20px}.detailgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.detailrow{padding:12px 0;border-top:1px solid rgba(32,28,23,.09)}.detailrow span{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}.detailrow b{font-weight:500;overflow-wrap:anywhere}
+.gate{max-width:620px;margin-top:40px;padding:24px;border:1px solid rgba(32,28,23,.12);background:var(--card)}.gate h2{font:400 28px/1 Georgia,serif;margin:4px 0 14px}.status{font-size:12px;color:var(--muted)}[hidden]{display:none!important}
+@media(max-width:1050px){.metrics{grid-template-columns:repeat(3,1fr)}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}}
+@media(max-width:640px){.top{padding:18px}.topnav a:first-child{display:none}main{width:min(100% - 24px,1420px);padding-top:32px}.metrics{grid-template-columns:1fr 1fr}.toolbar{grid-template-columns:1fr}.toolbar input{grid-column:auto}.detailgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="top"><a class="brand" href="/">Afterlight · Admin</a><nav class="topnav"><a href="/">Listen</a><a href="/account/">Account</a><a href="/support/">Support</a></nav></header>
+<main>
+<section>
+  <div class="eyebrow">Operator console</div>
+  <h1>Users, signals, and membership.</h1>
+  <p class="lede">A private operational view over the actual Neon Auth user directory, joined to Afterlight subscription, listening, preference, and support data.</p>
+</section>
+
+<section id="gate" class="gate">
+  <div class="eyebrow">Access check</div>
+  <h2>Checking admin access…</h2>
+  <p id="gateMessage" class="status">This page never trusts a browser-side admin flag.</p>
+</section>
+
+<section id="console" hidden>
+  <div id="adminNotice" class="notice"></div>
+  <div class="metrics">
+    <div class="metric"><div class="k">Registered users</div><div class="v" id="mUsers">—</div></div>
+    <div class="metric"><div class="k">Verified emails</div><div class="v" id="mVerified">—</div></div>
+    <div class="metric"><div class="k">Active premium</div><div class="v" id="mPremium">—</div></div>
+    <div class="metric"><div class="k">New · 7 days</div><div class="v" id="mNew">—</div></div>
+    <div class="metric"><div class="k">Events · 24h</div><div class="v" id="mEvents">—</div></div>
+    <div class="metric"><div class="k">Open support</div><div class="v" id="mSupport">—</div></div>
+  </div>
+
+  <section class="panel">
+    <div class="toolbar">
+      <input id="search" type="search" autocomplete="off" placeholder="Search name, email, or user ID" aria-label="Search users">
+      <select id="subscription" aria-label="Subscription status">
+        <option value="all">All memberships</option><option value="free">Free</option><option value="active">Active</option><option value="trialing">Trialing</option><option value="past_due">Past due</option><option value="canceled">Canceled</option>
+      </select>
+      <select id="verified" aria-label="Email verification">
+        <option value="all">All verification</option><option value="verified">Verified</option><option value="unverified">Unverified</option>
+      </select>
+      <select id="accountState" aria-label="Account state">
+        <option value="all">All account states</option><option value="active">Active accounts</option><option value="banned">Banned</option>
+      </select>
+    </div>
+    <div class="tablewrap">
+      <table class="users">
+        <thead><tr><th>User</th><th>Joined</th><th>Membership</th><th>Last activity</th><th>Last room</th><th>Events</th><th>Support</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty" class="empty" hidden>No users match these filters.</div>
+    </div>
+    <div class="pager">
+      <span id="pageStatus" class="status"></span>
+      <div><button id="prev">Previous</button> <button id="next">Next</button></div>
+    </div>
+  </section>
+</section>
+</main>
+</div>
+
+<dialog id="detailDialog">
+  <div class="detail">
+    <div class="detailhead"><div><div class="eyebrow">User detail</div><h2 id="detailName">Listener</h2></div><button class="close" id="detailClose">Close</button></div>
+    <div id="detailGrid" class="detailgrid"></div>
+  </div>
+</dialog>
+<script src="/admin-runtime.js"></script>
+</body>
+</html>
