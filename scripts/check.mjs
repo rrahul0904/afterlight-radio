@@ -10,6 +10,7 @@ await access(path.join(pub,'library-runtime.js'));
 await access(path.join(pub,'offline-worker.js'));
 await access(path.join(pub,'queue-runtime.js'));
 await access(path.join(pub,'library-browser.js'));
+await access(path.join(pub,'openstream-browser.js'));
 for(const slug of slugs){
   await access(path.join(pub,slug,'index.html'));
   for(let t=1;t<=3;t++){
@@ -35,7 +36,7 @@ for(const forbidden of ['/api/preferences','task_label:','task_text:','todo_titl
   if(focusRoom.includes(forbidden))throw new Error('Focus-room privacy boundary drifted: '+forbidden);
 }
 const builtIndex=await readFile(path.join(pub,'index.html'),'utf8');
-if(!builtIndex.includes('/focus-room.js?v=offline2'))throw new Error('Versioned focus-room runtime not injected into built room routes');
+if(!builtIndex.includes('/focus-room.js?v=offline3'))throw new Error('Versioned focus-room runtime not injected into built room routes');
 
 const libraryRuntime=await readFile(path.join(root,'scripts/library-runtime.js'),'utf8');
 const offlineWorker=await readFile(path.join(root,'scripts/offline-worker.js'),'utf8');
@@ -50,7 +51,7 @@ for(const needle of ['CACHE_URLS','REMOVE_URLS','Only same-origin media can be c
 for(const forbidden of ['password','accessToken','apiKey','Authorization:']){
   if(libraryRuntime.includes(forbidden)||offlineWorker.includes(forbidden))throw new Error('Offline-library credential boundary drifted: '+forbidden);
 }
-if(!builtIndex.includes('/library-runtime.js?v=offline2'))throw new Error('Versioned offline-library runtime not injected into built room routes');
+if(!builtIndex.includes('/library-runtime.js?v=offline3'))throw new Error('Versioned offline-library runtime not injected into built room routes');
 if(libraryRuntime.includes('registration().catch'))throw new Error('Offline worker must not register before explicit offline intent');
 if(!libraryRuntime.includes("await send('REMOVE_URLS',{urls:roomUrls(slug)})"))throw new Error('Removing one room must preserve shared offline shell assets');
 
@@ -62,7 +63,7 @@ for(const needle of ['afterlight-radio:queue:v1','HISTORY_LIMIT=40','determinist
 for(const forbidden of ['/api/preferences','fetch(','credentials:']){
   if(queueRuntime.includes(forbidden))throw new Error('Queue local-first boundary drifted: '+forbidden);
 }
-if(!builtIndex.includes('/queue-runtime.js?v=offline2'))throw new Error('Versioned queue runtime not injected into built room routes');
+if(!builtIndex.includes('/queue-runtime.js?v=offline3'))throw new Error('Versioned queue runtime not injected into built room routes');
 
 const libraryBrowser=await readFile(path.join(root,'scripts/library-browser.js'),'utf8');
 new Function(libraryBrowser);
@@ -72,11 +73,30 @@ for(const needle of ['Owned Afterlight catalog','Music library','Search tracks, 
 for(const forbidden of ['fetch(','innerHTML=entry.title','innerHTML=entry.roomName']){
   if(libraryBrowser.includes(forbidden))throw new Error('Library browser safety/local boundary drifted: '+forbidden);
 }
-if(!builtIndex.includes('/library-browser.js?v=offline2'))throw new Error('Versioned library browser not injected into built room routes');
+if(!builtIndex.includes('/library-browser.js?v=offline3'))throw new Error('Versioned library browser not injected into built room routes');
+
+const openstreamBrowser=await readFile(path.join(root,'scripts/openstream-browser.js'),'utf8');
+new Function(openstreamBrowser);
+for(const needle of ['Self-hosted','/api/providers/openstream/status','/api/providers/openstream/library','/api/providers/openstream/channels','window.__afterlightOpenStream','Secure hosted playback remains gated']){
+  if(!openstreamBrowser.includes(needle))throw new Error('OpenStream browser contract missing: '+needle);
+}
+for(const forbidden of ['OPENSTREAM_LISTEN_KEY','OPENSTREAM_CONTROL_KEY','innerHTML=item','innerHTML=channel']){
+  if(openstreamBrowser.includes(forbidden))throw new Error('OpenStream browser secret/rendering boundary drifted: '+forbidden);
+}
+if(!builtIndex.includes('/openstream-browser.js?v=offline3'))throw new Error('Versioned OpenStream browser not injected into built room routes');
+
+const openstream=await readFile(path.join(root,'src/openstream-provider.js'),'utf8');
+for(const needle of ['OPENSTREAM_URL','OPENSTREAM_LISTEN_KEY','OPENSTREAM_CONTROL_KEY','OPENSTREAM_ALLOW_INSECURE','OPENSTREAM_ALLOW_PRIVATE','private_network_blocked','control_key_missing','listen_key_missing','/api/providers/openstream/library','/api/providers/openstream/channels','/api/providers/openstream/state','[redacted]']){
+  if(!openstream.includes(needle))throw new Error('OpenStream provider contract missing: '+needle);
+}
+for(const forbidden of ['ALLOW_REMOTE_MEDIA=1','/api/ingest/','/api/remote']){
+  if(openstream.includes(forbidden))throw new Error('OpenStream provider exceeded read-only boundary: '+forbidden);
+}
 
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const wrangler=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
 if(pkg.scripts.build!=='node scripts/build.mjs')throw new Error('Unexpected build command');
+if(pkg.scripts['check:openstream']!=='node scripts/openstream-provider-check.mjs')throw new Error('OpenStream provider check is not wired into package scripts');
 if(pkg.dependencies?.['@neondatabase/serverless']!=='1.1.0')throw new Error('Cloudflare Neon driver must remain pinned');
 if(wrangler.main!=='src/worker.js'||wrangler.assets?.directory!=='./public'||wrangler.assets?.binding!=='ASSETS')throw new Error('Wrangler backend/static config mismatch');
 if(!wrangler.vars?.NEON_AUTH_BASE_URL?.includes('.neonauth.'))throw new Error('Neon Auth base URL missing');
@@ -96,7 +116,7 @@ const neonFn=await readFile(path.join(root,'functions/afterlight-lite.mjs'),'utf
 const runtimeSecrets=JSON.parse(await readFile(path.join(root,'api/runtime-secrets.json'),'utf8'));
 const vercelConfig=JSON.parse(await readFile(path.join(root,'vercel.json'),'utf8'));
 
-for(const needle of ["/api/auth/","/get-session","/api/health","/api/ready","/api/config","/api/me","/api/preferences","/api/checkout","/api/portal","/api/events","/api/support","/api/stripe/webhook","Stripe-Signature","2026-07-29.dahlia","buy.stripe.com","locked_prefilled_email"]){
+for(const needle of ["/api/auth/","/get-session","/api/health","/api/ready","/api/config","/api/me","/api/preferences","/api/checkout","/api/portal","/api/events","/api/support","/api/stripe/webhook","isOpenStreamPath","handleOpenStreamApi","Stripe-Signature","2026-07-29.dahlia","buy.stripe.com","locked_prefilled_email"]){
   if(!core.includes(needle))throw new Error('Cloudflare API core capability missing: '+needle);
 }
 if(!core.includes("from '@neondatabase/serverless'"))throw new Error('Cloudflare Neon runtime import missing');
@@ -104,7 +124,7 @@ if(!worker.includes('handleApi'))throw new Error('Cloudflare adapter must call s
 if(worker.includes('SUPABASE_')||core.includes('SUPABASE_'))throw new Error('Stale Supabase backend remains');
 
 const neonBackend='https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech';
-for(const needle of [neonBackend,'X-Afterlight-Origin','bodyParser:false','getSetCookie','stripe-signature'])if(!vercel.includes(needle))throw new Error('Vercel Neon proxy missing: '+needle);
+for(const needle of [neonBackend,'X-Afterlight-Origin','bodyParser:false','getSetCookie','stripe-signature','openStreamResponse','handleOpenStreamApi','/api/me'])if(!vercel.includes(needle))throw new Error('Vercel gateway capability missing: '+needle);
 if(vercel.includes('runtime-secrets.json')||vercel.includes('DATABASE_URL'))throw new Error('Vercel proxy must not depend on database secrets');
 if(Object.keys(runtimeSecrets).length!==0)throw new Error('Tracked runtime-secrets.json must remain empty');
 if(vercelConfig.outputDirectory!=='public'||vercelConfig.rewrites?.[0]?.destination!=='/api?path=:path*')throw new Error('Vercel routing config mismatch');
@@ -129,4 +149,4 @@ for(const page of ['privacy','terms','support','account']){
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, authenticated fail-closed OpenStream provider boundary, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
