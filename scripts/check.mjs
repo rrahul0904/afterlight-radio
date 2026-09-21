@@ -50,16 +50,15 @@ for(const forbidden of ['password','accessToken','apiKey','Authorization:']){
   if(libraryRuntime.includes(forbidden)||offlineWorker.includes(forbidden))throw new Error('Offline-library credential boundary drifted: '+forbidden);
 }
 if(!builtIndex.includes('/library-runtime.js'))throw new Error('Offline-library runtime not injected into built room routes');
+if(libraryRuntime.includes('registration().catch'))throw new Error('Offline worker must not register before explicit offline intent');
 
 const queueRuntime=await readFile(path.join(root,'scripts/queue-runtime.js'),'utf8');
 new Function(queueRuntime);
 for(const needle of ['afterlight-radio:queue:v1','HISTORY_LIMIT=40','deterministicShuffle','repeat:\'all\'','queue_repeat_one','queue_finished','queue_shuffle_changed','queue_repeat_changed','Listening queue','Recent on this device','window.__afterlightQueue']){
   if(!queueRuntime.includes(needle))throw new Error('Queue runtime contract missing: '+needle);
 }
-for(const forbidden of ['/api/preferences','/api/events',{toString(){return 'TODO'}}]){
-  const value=String(forbidden);
-  if(value==='TODO')continue;
-  if(queueRuntime.includes(value))throw new Error('Queue local-first boundary drifted: '+value);
+for(const forbidden of ['/api/preferences','fetch(','credentials:']){
+  if(queueRuntime.includes(forbidden))throw new Error('Queue local-first boundary drifted: '+forbidden);
 }
 if(!builtIndex.includes('/queue-runtime.js'))throw new Error('Queue runtime not injected into built room routes');
 
