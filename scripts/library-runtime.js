@@ -2,7 +2,7 @@
   const CACHE_NAME='afterlight-offline-v1';
   const MEMORY_KEY='afterlight-radio:playback-memory:v1';
   const MAX_MEMORY_AGE_MS=1000*60*60*24*30;
-  const SHELL_REV='offline2';
+  const SHELL_REV='offline3';
   const versioned=path=>path+'?v='+SHELL_REV;
   const SHELL_URLS=[
     '/',
@@ -12,7 +12,8 @@
     versioned('/focus-room.js'),
     versioned('/library-runtime.js'),
     versioned('/queue-runtime.js'),
-    versioned('/library-browser.js')
+    versioned('/library-browser.js'),
+    versioned('/openstream-browser.js')
   ];
   let button=null;
   let lastPersistedAt=0;
