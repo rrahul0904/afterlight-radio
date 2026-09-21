@@ -92,6 +92,7 @@ if(html.includes('SUPABASE_')||html.includes('/auth/v1/'))throw new Error('Stale
 const worker=await readFile(path.join(root,'src/worker.js'),'utf8');
 const core=await readFile(path.join(root,'src/api-core.js'),'utf8');
 const vercel=await readFile(path.join(root,'api/index.js'),'utf8');
+const previewServer=await readFile(path.join(root,'scripts/preview-server.mjs'),'utf8');
 const neonFn=await readFile(path.join(root,'functions/afterlight-lite.mjs'),'utf8');
 const runtimeSecrets=JSON.parse(await readFile(path.join(root,'api/runtime-secrets.json'),'utf8'));
 const vercelConfig=JSON.parse(await readFile(path.join(root,'vercel.json'),'utf8'));
@@ -112,6 +113,8 @@ if(worker.includes('SUPABASE_')||core.includes('SUPABASE_'))throw new Error('Sta
 const neonBackend='https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech';
 for(const needle of [neonBackend,'X-Afterlight-Origin','bodyParser:false','getSetCookie','stripe-signature',"'range'","'if-range'"])if(!vercel.includes(needle))throw new Error('Vercel Neon proxy missing: '+needle);
 if(vercel.includes('runtime-secrets.json')||vercel.includes('DATABASE_URL'))throw new Error('Vercel proxy must not depend on database secrets');
+for(const needle of ['AFTERLIGHT_BACKEND_URL','X-Afterlight-Origin',"'range'","'if-range'",'0.0.0.0','/healthz'])if(!previewServer.includes(needle))throw new Error('Portable preview server missing: '+needle);
+if(previewServer.includes('NAVIDROME_TOKEN')||previewServer.includes('DATABASE_URL'))throw new Error('Portable preview server must remain a thin first-party proxy');
 if(Object.keys(runtimeSecrets).length!==0)throw new Error('Tracked runtime-secrets.json must remain empty');
 if(vercelConfig.outputDirectory!=='public'||vercelConfig.rewrites?.[0]?.destination!=='/api?path=:path*')throw new Error('Vercel routing config mismatch');
 
