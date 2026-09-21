@@ -8,7 +8,7 @@
   function readState(){
     let value={};
     try{value=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch{}
-    const history=Array.isArray(value.history)?value.history.filter(x=>x&&x.source&&x.room&&Number.isInteger(x.track)).slice(0,HISTORY_LIMIT):[];
+    const history=Array.isArray(value.history)?value.history.filter(x=>x&&typeof x.source==='string'&&x.source.startsWith('/audio/')&&typeof x.room==='string'&&/^[a-z0-9-]+$/.test(x.room)&&Number.isInteger(x.track)&&x.track>=0&&x.track<3).slice(0,HISTORY_LIMIT):[];
     const shuffleOrders=value.shuffleOrders&&typeof value.shuffleOrders==='object'?value.shuffleOrders:{};
     return {
       shuffle:!!value.shuffle,
@@ -217,6 +217,10 @@
     document.head.appendChild(style);
   }
 
+  function escapeHtml(value){
+    return String(value??'').replace(/[&<>\"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
   function formatTime(value){
     try{return new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date(value))}catch{return ''}
   }
@@ -229,7 +233,7 @@
       list.innerHTML=queue.map(item=>`
         <div class="queue-row ${item.current?'current':''}">
           <span>${item.position+1}</span>
-          <button type="button" data-queue-track="${item.track}"><strong>${item.title}</strong><br><small>${item.current?'Playing now':room()?.name||''}</small></button>
+          <button type="button" data-queue-track="${item.track}"><strong>${escapeHtml(item.title)}</strong><br><small>${item.current?'Playing now':room()?.name||''}</small></button>
           <span class="queue-time">${item.current?'Now':''}</span>
         </div>`).join('');
       list.querySelectorAll('[data-queue-track]').forEach(btn=>btn.addEventListener('click',()=>{
@@ -242,7 +246,7 @@
       history.innerHTML=state.history.length?state.history.slice(0,10).map(item=>`
         <div class="queue-row">
           <span>↺</span>
-          <button type="button" data-history-room="${item.room}" data-history-track="${item.track}"><strong>${item.title}</strong><br><small>${item.roomName||item.room}</small></button>
+          <button type="button" data-history-room="${item.room}" data-history-track="${item.track}"><strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(item.roomName||item.room)}</small></button>
           <span class="queue-time">${formatTime(item.startedAt)}</span>
         </div>`).join(''):'<div class="queue-empty">Nothing played yet on this device.</div>';
       history.querySelectorAll('[data-history-room]').forEach(btn=>btn.addEventListener('click',()=>{
