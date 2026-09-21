@@ -227,8 +227,9 @@
   }
 
   const providerContract=Object.freeze({
-    version:1,
-    normalizedTrack:['id','title','artist','album','duration','artwork','streamUrl','provider','providerTrackId'],
+    version:2,
+    normalizedTrack:['id','title','artist','album','duration','artwork','streamUrl','lyricsUrl','provider','providerTrackId'],
+    normalizedLyrics:['provider','providerTrackId','available','tracks[{lang,synced,offsetMs,displayArtist,displayTitle,lines[{startMs,text}]}]'],
     supportedProviderKinds:['afterlight','jellyfin','emby','navidrome'],
     credentialPolicy:'server-side-only',
     externalProvidersEnabled:false
