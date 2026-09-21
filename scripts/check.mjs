@@ -41,10 +41,10 @@ const libraryRuntime=await readFile(path.join(root,'scripts/library-runtime.js')
 const offlineWorker=await readFile(path.join(root,'scripts/offline-worker.js'),'utf8');
 new Function(libraryRuntime);
 new Function(offlineWorker);
-for(const needle of ['afterlight-offline-v1','afterlight-radio:playback-memory:v1','Save offline','offline_room_saved','serviceWorker.register','providerContract','server-side-only','externalProvidersEnabled:false','audio.currentTime','loadedmetadata']){
+for(const needle of ['afterlight-offline-v1','afterlight-radio:playback-memory:v1','Save offline','offline_room_saved','serviceWorker.register','providerContract','server-side-only','externalProvidersEnabled:false','audio.currentTime','loadedmetadata','SHELL_URLS','offlinePackageUrls','/library-browser.js','/queue-runtime.js']){
   if(!libraryRuntime.includes(needle))throw new Error('Offline-library contract missing: '+needle);
 }
-for(const needle of ['CACHE_URLS','REMOVE_URLS','Only same-origin media can be cached','Content-Range','Partial Content','status:206','/audio/']){
+for(const needle of ['CACHE_URLS','REMOVE_URLS','Only same-origin media can be cached','Content-Range','Partial Content','status:206','/audio/','data.urls.length>20','if(cached)return cached']){
   if(!offlineWorker.includes(needle))throw new Error('Offline worker contract missing: '+needle);
 }
 for(const forbidden of ['password','accessToken','apiKey','Authorization:']){
@@ -52,6 +52,7 @@ for(const forbidden of ['password','accessToken','apiKey','Authorization:']){
 }
 if(!builtIndex.includes('/library-runtime.js'))throw new Error('Offline-library runtime not injected into built room routes');
 if(libraryRuntime.includes('registration().catch'))throw new Error('Offline worker must not register before explicit offline intent');
+if(!libraryRuntime.includes("await send('REMOVE_URLS',{urls:roomUrls(slug)})"))throw new Error('Removing one room must preserve shared offline shell assets');
 
 const queueRuntime=await readFile(path.join(root,'scripts/queue-runtime.js'),'utf8');
 new Function(queueRuntime);
@@ -128,4 +129,4 @@ for(const page of ['privacy','terms','support','account']){
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, explicit offline room caching with range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
