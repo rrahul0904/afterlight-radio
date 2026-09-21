@@ -166,6 +166,16 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#queueClose').click();
 
     if(name==='chromium-desktop'){
+      await page.locator('#libraryBtn').click();
+      await page.locator('#libraryBrowser').waitFor({state:'visible',timeout:5000});
+      const catalogCount=await page.evaluate(()=>window.__afterlightCatalog?.count);
+      if(catalogCount!==36)throw new Error('owned catalog should contain 36 tracks, got '+catalogCount);
+      await page.locator('#librarySearch').fill('orange parapet');
+      const libraryRows=page.locator('#libraryResults [data-library-track]');
+      if(await libraryRows.count()!==1)throw new Error('library search did not narrow to one owned track');
+      if(!(await libraryRows.first().innerText()).includes('Orange on the parapet'))throw new Error('library search returned the wrong track');
+      await page.locator('#libraryClose').click();
+
       await page.locator('#offlineRoom').click();
       await page.waitForFunction(()=>document.querySelector('#offlineRoom')?.getAttribute('aria-pressed')==='true',{timeout:20000});
       const saved=await page.evaluate(()=>window.__afterlightLibrary?.isRoomOffline());
