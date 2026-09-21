@@ -21,7 +21,7 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 | Queue / playlist management | Durable per-device queue state, recent listening history, deterministic shuffle, repeat-one/all/off, and room-track selection | Implemented |
 | Jellyfin / Emby / Navidrome servers | Disabled-by-default server-side Navidrome/Subsonic adapter with normalized search, first-party artwork/audio proxy, auth requirement, HTTPS/private-host guardrails, and Range forwarding | Implemented backend boundary |
 | Library browse / search | Searchable first-party surface over all 36 owned Afterlight tracks, rooms, and moods | Implemented |
-| Synced lyrics | Optional lyric layer for owned/generated vocal tracks; current catalog is instrumental | Deferred until content exists |
+| Synced lyrics | Bounded authenticated OpenSubsonic line-timed lyrics for user-owned/self-hosted provider tracks; first-party catalog remains instrumental | Provider backend implemented; UI deferred until content/provider playback surface exists |
 | Artwork-driven theming | Existing Afterlight room palettes and illustrated scenes already cover this product need | Existing |
 | Media keys / system controls | Existing Media Session integration | Existing |
 | AirPlay / DLNA / car surfaces | Native/cast adapters after core web library contract is stable | Later |
@@ -79,7 +79,8 @@ The shared API core and production Neon Function now expose:
 
 - `GET /api/library/provider/status`
 - `GET /api/library/provider/search?q=...`
+- `GET /api/library/provider/lyrics?id=...`
 - `GET|HEAD /api/library/provider/stream?id=...`
 - `GET|HEAD /api/library/provider/artwork?id=...`
 
-Every route requires an authenticated Afterlight session. Provider base URLs must be HTTPS and cannot target localhost, RFC1918-style IPv4 ranges, or `.local` hosts. Search requests are bounded and normalized into the same provider-track shape already defined by the browser contract. Stream and artwork responses never expose Navidrome credentials; the server performs the upstream request and returns selected media headers only.
+Every route requires an authenticated Afterlight session. Provider base URLs must be HTTPS and cannot target localhost, RFC1918-style IPv4 ranges, or `.local` hosts. Search requests are bounded and normalized into the same provider-track shape already defined by the browser contract. Provider tracks now include a same-origin `lyricsUrl`. Lyrics are normalized from OpenSubsonic `getLyricsBySongId` into bounded line-level timing, language, offset and text; raw provider responses and credentials are not exposed. Stream and artwork responses never expose Navidrome credentials; the server performs the upstream request and returns selected media headers only.
