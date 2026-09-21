@@ -2,6 +2,16 @@
   const CACHE_NAME='afterlight-offline-v1';
   const MEMORY_KEY='afterlight-radio:playback-memory:v1';
   const MAX_MEMORY_AGE_MS=1000*60*60*24*30;
+  const SHELL_URLS=[
+    '/',
+    '/runtime-enhancements.js',
+    '/mobile-visual-polish.js',
+    '/audio-continuity.js',
+    '/focus-room.js',
+    '/library-runtime.js',
+    '/queue-runtime.js',
+    '/library-browser.js'
+  ];
   let button=null;
   let lastPersistedAt=0;
   let restoredSource='';
@@ -74,10 +84,12 @@
     });
   }
 
+  const offlinePackageUrls=slug=>[...SHELL_URLS,...roomUrls(slug)];
+
   async function isRoomOffline(slug=currentSlug()){
     if(!('caches' in window))return false;
     const cache=await caches.open(CACHE_NAME);
-    for(const url of roomUrls(slug)){
+    for(const url of offlinePackageUrls(slug)){
       const match=await cache.match(url,{ignoreSearch:false});
       if(!match)return false;
     }
@@ -97,7 +109,7 @@
     if(button){button.disabled=true;button.textContent='Saving…'}
     try{
       const slug=currentSlug();
-      await send('CACHE_URLS',{urls:roomUrls(slug)});
+      await send('CACHE_URLS',{urls:offlinePackageUrls(slug)});
       notify('Saved for offline listening');
       if(typeof trackEvent==='function')trackEvent('offline_room_saved',{room:slug});
       return true;
@@ -224,7 +236,9 @@
     version:1,
     cacheName:CACHE_NAME,
     providerContract,
+    shellUrls:[...SHELL_URLS],
     roomUrls,
+    offlinePackageUrls,
     isRoomOffline,
     saveCurrentRoom,
     removeCurrentRoom,
