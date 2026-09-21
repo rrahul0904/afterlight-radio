@@ -11,7 +11,7 @@ Afterlight is a premium consumer listening product: twelve illustrated places wi
 - dedicated Neon Postgres `afterlight` database in `us-east-2`
 - managed Neon Auth, proxied first-party through `/api/auth/*`
 - 12 clean room routes
-- 36 build-generated original WAV tracks (3 per room)
+- 36 build-generated original WAV tracks (3 per room) rendered by Composition Engine v2 with distinct arrangements and manifest provenance
 - cross-device saved places and listening preferences
 - Stripe-hosted monthly and annual checkout links
 - verified Stripe webhooks drive premium entitlements and cancellation state
@@ -53,5 +53,6 @@ See:
 
 - [docs/MVP_STATUS.md](docs/MVP_STATUS.md)
 - [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)
+- [docs/MUSIC_PIPELINE.md](docs/MUSIC_PIPELINE.md)
 
 The optional Cloudflare mirror can be invoked manually from `.github/workflows/deploy-cloudflare.yml` after Cloudflare credentials are configured.
