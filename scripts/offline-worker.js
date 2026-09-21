@@ -38,7 +38,7 @@ self.addEventListener('message',event=>{
   if(type!=='CACHE_URLS'&&type!=='REMOVE_URLS')return;
   event.waitUntil((async()=>{
     try{
-      if(!Array.isArray(data.urls)||data.urls.length<1||data.urls.length>8)throw new Error('Invalid offline URL set');
+      if(!Array.isArray(data.urls)||data.urls.length<1||data.urls.length>20)throw new Error('Invalid offline URL set');
       if(type==='CACHE_URLS')await cacheUrls(data.urls);
       else await removeUrls(data.urls);
       await reply(event.source,{requestId,ok:true,type});
@@ -92,5 +92,14 @@ self.addEventListener('fetch',event=>{
         return (await cache.match(request,{ignoreSearch:false}))||(await cache.match('/'));
       }
     })());
+    return;
   }
+
+  event.respondWith((async()=>{
+    const cache=await caches.open(CACHE_NAME);
+    const key=new Request(url.href,{method:'GET',credentials:'same-origin'});
+    const cached=await cache.match(key,{ignoreSearch:false});
+    if(cached)return cached;
+    return fetch(request);
+  })());
 });
