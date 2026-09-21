@@ -9,7 +9,7 @@
     "check": "node scripts/check.mjs",
     "check:quality": "node scripts/product-quality-check.mjs",
     "check:worker": "npx --yes wrangler@4.130.0 deploy --dry-run --outdir .wrangler-dry-run",
-    "test": "npm run build && npm run check && npm run check:music && npm run check:quality && npm run check:runtime && npm run check:vercel && npm run check:vercel-config && npm run check:hosted && npm run check:preview-server && npm run audit && npm run check:worker",
+    "test": "npm run build && npm run check && npm run check:music && npm run check:provider-lyrics && npm run check:quality && npm run check:runtime && npm run check:vercel && npm run check:vercel-config && npm run check:hosted && npm run check:preview-server && npm run audit && npm run check:worker",
     "serve": "python3 -m http.server 4173 -d public",
     "cf:dev": "npm run build && npx --yes wrangler@4.130.0 dev",
     "cf:deploy": "npm run build && npx --yes wrangler@4.130.0 deploy",
@@ -20,7 +20,8 @@
     "check:hosted": "node --check scripts/hosted-offline-smoke.mjs",
     "start": "node scripts/preview-server.mjs",
     "check:preview-server": "node --check scripts/preview-server.mjs",
-    "check:music": "node scripts/music-quality-check.mjs"
+    "check:music": "node scripts/music-quality-check.mjs",
+    "check:provider-lyrics": "node scripts/provider-lyrics-check.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0"
