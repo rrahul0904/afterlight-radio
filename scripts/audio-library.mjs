@@ -216,7 +216,7 @@ function synth(room,track){
     wetL[n]=l;wetR[n]=r;peak=Math.max(peak,Math.abs(l),Math.abs(r));
   }
 
-  const gain=Math.min(1.20,.92/peak),dataBytes=N*4,buf=new ArrayBuffer(44+dataBytes),v=new DataView(buf);
+  const gain=Math.min(2.00,.92/peak),dataBytes=N*4,buf=new ArrayBuffer(44+dataBytes),v=new DataView(buf);
   const enc=(o,text)=>{for(let j=0;j<text.length;j++)v.setUint8(o+j,text.charCodeAt(j))};
   enc(0,'RIFF');v.setUint32(4,36+dataBytes,true);enc(8,'WAVE');enc(12,'fmt ');
   v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,2,true);
