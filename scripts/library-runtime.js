@@ -2,15 +2,17 @@
   const CACHE_NAME='afterlight-offline-v1';
   const MEMORY_KEY='afterlight-radio:playback-memory:v1';
   const MAX_MEMORY_AGE_MS=1000*60*60*24*30;
+  const SHELL_REV='offline2';
+  const versioned=path=>path+'?v='+SHELL_REV;
   const SHELL_URLS=[
     '/',
-    '/runtime-enhancements.js',
-    '/mobile-visual-polish.js',
-    '/audio-continuity.js',
-    '/focus-room.js',
-    '/library-runtime.js',
-    '/queue-runtime.js',
-    '/library-browser.js'
+    versioned('/runtime-enhancements.js'),
+    versioned('/mobile-visual-polish.js'),
+    versioned('/audio-continuity.js'),
+    versioned('/focus-room.js'),
+    versioned('/library-runtime.js'),
+    versioned('/queue-runtime.js'),
+    versioned('/library-browser.js')
   ];
   let button=null;
   let lastPersistedAt=0;
@@ -53,7 +55,7 @@
 
   async function registration(){
     if(!('serviceWorker' in navigator))throw new Error('Offline playback is not supported in this browser');
-    await navigator.serviceWorker.register('/offline-worker.js',{scope:'/'});
+    await navigator.serviceWorker.register('/offline-worker.js?v='+SHELL_REV,{scope:'/'});
     return navigator.serviceWorker.ready;
   }
 
@@ -235,6 +237,7 @@
   window.__afterlightLibrary={
     version:1,
     cacheName:CACHE_NAME,
+    shellRevision:SHELL_REV,
     providerContract,
     shellUrls:[...SHELL_URLS],
     roomUrls,
