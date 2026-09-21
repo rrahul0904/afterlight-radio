@@ -198,10 +198,12 @@ for(const [name,type,contextOptions] of targets){
         await page.locator('#queueBtn').waitFor({state:'visible',timeout:5000});
         await page.locator('#libraryBtn').waitFor({state:'visible',timeout:5000});
         const offlineRuntime=await page.evaluate(async()=>{
+          let networkProbeFailed=false;
+          try{await fetch('/__offline_probe__?t='+Date.now(),{cache:'no-store'})}catch{networkProbeFailed=true}
           const shell=await fetch('/library-browser.js?v=offline2',{cache:'reload'});
           const range=await fetch('/audio/rooftop/1.wav',{headers:{Range:'bytes=100-199'},cache:'reload'});
           return {
-            online:navigator.onLine,
+            networkProbeFailed,
             controlled:!!navigator.serviceWorker.controller,
             shellStatus:shell.status,
             shellBytes:(await shell.arrayBuffer()).byteLength,
@@ -212,7 +214,7 @@ for(const [name,type,contextOptions] of targets){
             queue:!!window.__afterlightQueue
           };
         });
-        if(offlineRuntime.online||!offlineRuntime.controlled||offlineRuntime.shellStatus!==200||offlineRuntime.shellBytes<1000||offlineRuntime.catalog!==36||!offlineRuntime.queue){
+        if(!offlineRuntime.networkProbeFailed||!offlineRuntime.controlled||offlineRuntime.shellStatus!==200||offlineRuntime.shellBytes<1000||offlineRuntime.catalog!==36||!offlineRuntime.queue){
           throw new Error('cold offline runtime shell failed '+JSON.stringify(offlineRuntime));
         }
         if(offlineRuntime.rangeStatus!==206||offlineRuntime.rangeLength!==100||offlineRuntime.contentRange!=='bytes 100-199/1755472'){
