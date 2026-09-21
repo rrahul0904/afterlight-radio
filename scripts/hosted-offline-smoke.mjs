@@ -51,7 +51,7 @@ try{
     await page.locator('#queueBtn').waitFor({state:'visible',timeout:8000});
 
     const state=await page.evaluate(async()=>{
-      const shell=await fetch('/library-browser.js',{cache:'reload'});
+      const shell=await fetch('/library-browser.js?v=offline2',{cache:'reload'});
       const range=await fetch('/audio/rooftop/1.wav',{headers:{Range:'bytes=100-199'},cache:'reload'});
       await new Promise(resolve=>{
         if(Number.isFinite(audio.duration)&&audio.duration>0)return resolve();
