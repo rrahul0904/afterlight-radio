@@ -1,7 +1,21 @@
-name: Deploy Cloudflare (optional)
+name: Deploy Cloudflare Release Mirror
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'account.html'
+      - 'legal/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'functions/**'
+      - 'api/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'wrangler.jsonc'
+      - '.github/workflows/deploy-cloudflare.yml'
 
 permissions:
   contents: read
@@ -9,8 +23,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
+      AFTERLIGHT_RELEASE_SHA: ${{ github.sha }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
@@ -25,17 +40,25 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
-            echo "::error::Optional Cloudflare mirror requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."
+            echo "::error::Cloudflare release mirror requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."
             exit 1
           fi
 
       - name: Install
         run: npm install
 
-      - name: Certify release
+      - name: Certify exact release
         run: npm test
 
-      - name: Deploy optional Cloudflare mirror
+      - name: Verify build revision marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(tr -d '\r\n' < public/release.txt)" = "$AFTERLIGHT_RELEASE_SHA"
+          test "$(node -e "const m=require('./public/music-manifest.json');process.stdout.write(String(m.version))")" = "2"
+          test "$(node -e "const m=require('./public/music-manifest.json');process.stdout.write(String(m.tracks.length))")" = "36"
+
+      - name: Deploy Cloudflare release mirror
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
