@@ -166,14 +166,38 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#queueClose').click();
 
     if(name==='chromium-desktop'){
+      await page.route('**/api/providers/openstream/**',async route=>{
+        const path=new URL(route.request().url()).pathname;
+        if(path.endsWith('/status'))return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({provider:'openstream',enabled:true,reachable:true,listenConfigured:true,controlConfigured:true})});
+        if(path.endsWith('/library'))return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({provider:'openstream',count:2,items:[
+          {id:'server-one',name:'Server Song',path:'album/server-song.mp3',type:'file'},
+          {id:'server-mix',name:'Evening Mix',path:'mixes/evening.m3u',type:'playlist'}
+        ]})});
+        if(path.endsWith('/channels'))return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({provider:'openstream',count:1,channels:[
+          {id:'live-room',name:'Live room',state:'playing',listeners:2}
+        ]})});
+        return route.fulfill({status:404,contentType:'application/json',body:'{"error":"not found"}'});
+      });
       await page.locator('#libraryBtn').click();
       await page.locator('#libraryBrowser').waitFor({state:'visible',timeout:5000});
+      await page.locator('#openstreamSourceSwitch').waitFor({state:'visible',timeout:5000});
       const catalogCount=await page.evaluate(()=>window.__afterlightCatalog?.count);
       if(catalogCount!==36)throw new Error('owned catalog should contain 36 tracks, got '+catalogCount);
       await page.locator('#librarySearch').fill('orange parapet');
       const libraryRows=page.locator('#libraryResults [data-library-track]');
       if(await libraryRows.count()!==1)throw new Error('library search did not narrow to one owned track');
       if(!(await libraryRows.first().innerText()).includes('Orange on the parapet'))throw new Error('library search returned the wrong track');
+
+      await page.locator('[data-source="openstream"]').click();
+      await page.locator('#openstreamPanel').waitFor({state:'visible',timeout:5000});
+      await page.waitForFunction(()=>document.querySelector('#openstreamPanel')?.textContent?.includes('Server Song'),{timeout:5000});
+      const serverText=await page.locator('#openstreamPanel').innerText();
+      if(!serverText.includes('Server Song')||!serverText.includes('Evening Mix')||!serverText.includes('Live room')||!serverText.includes('2 listeners')){
+        throw new Error('self-hosted library/channel UI mismatch '+serverText);
+      }
+      if(/listen-secret|control-secret|OPENSTREAM_/i.test(serverText))throw new Error('self-hosted UI leaked provider credential material');
+      await page.locator('[data-source="afterlight"]').click();
+      if(await page.locator('#libraryResults').isHidden())throw new Error('Afterlight library did not restore after self-hosted view');
       await page.locator('#libraryClose').click();
 
       await page.locator('#offlineRoom').click();
@@ -200,7 +224,7 @@ for(const [name,type,contextOptions] of targets){
         const offlineRuntime=await page.evaluate(async()=>{
           let networkProbeFailed=false;
           try{await fetch('/__offline_probe__?t='+Date.now(),{cache:'no-store'})}catch{networkProbeFailed=true}
-          const shell=await fetch('/library-browser.js?v=offline2',{cache:'reload'});
+          const shell=await fetch('/library-browser.js?v=offline3',{cache:'reload'});
           const range=await fetch('/audio/rooftop/1.wav',{headers:{Range:'bytes=100-199'},cache:'reload'});
           return {
             networkProbeFailed,
