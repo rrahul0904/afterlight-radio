@@ -55,8 +55,11 @@ jobs:
         run: |
           set -euo pipefail
           test "$(tr -d '\r\n' < public/release.txt)" = "$AFTERLIGHT_RELEASE_SHA"
-          test "$(node -e "const m=require('./public/music-manifest.json');process.stdout.write(String(m.version))")" = "2"
-          test "$(node -e "const m=require('./public/music-manifest.json');process.stdout.write(String(m.tracks.length))")" = "36"
+          node - <<'NODE'
+          const m=require('./public/music-manifest.json');
+          if(m.version!==3||m.tracks?.length!==36||m.thirdPartyAudio!==false) throw new Error('Composition Engine v3 manifest is incomplete');
+          if(!m.tracks.every(t=>t.generator==='afterlight-composition-engine-v3'&&t.channels===2&&t.bars===12)) throw new Error('Cloudflare release music contract drifted');
+          NODE
 
       - name: Deploy Cloudflare release mirror
         uses: cloudflare/wrangler-action@v4
