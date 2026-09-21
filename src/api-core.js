@@ -150,6 +150,81 @@ async function ensureProfile(user,env){
 async function subscriptionFor(userId,env){const sql=db(env),rows=await sql`select * from subscriptions where user_id=${userId}::uuid`;return rows[0]||null}
 async function preferenceFor(userId,env){const sql=db(env),rows=await sql`select * from user_preferences where user_id=${userId}::uuid`;return rows[0]||null}
 
+function adminEmails(env){
+  return new Set(String(env.AFTERLIGHT_ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
+}
+function roleHasAdmin(role){return String(role||'').split(/[\s,]+/).some(x=>x.toLowerCase()==='admin')}
+function adminIdentity(user,env){return !!user&&(roleHasAdmin(user.role)||adminEmails(env).has(String(user.email||'').toLowerCase()))}
+async function requireAdmin(req,env){
+  const auth=await authSession(req,env);if(!auth?.user)return {response:json({error:'Sign in required'},401)};
+  if(!env.DATABASE_URL)return {response:json({error:'Admin data is not configured'},503)};
+  const sql=db(env);
+  const rows=await sql`select id,name,email,"emailVerified" as email_verified,role,banned,"createdAt" as created_at from neon_auth."user" where id=${auth.user.id}::uuid limit 1`;
+  const user=rows[0]||{id:auth.user.id,name:auth.user.name,email:auth.user.email,role:auth.user.role,banned:false};
+  if(user.banned)return {response:json({error:'Admin access denied'},403)};
+  if(!adminIdentity(user,env))return {response:json({error:'Admin access required'},403)};
+  return {auth,user,sql};
+}
+async function adminSummary(req,env){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const rows=await gate.sql`select
+    (select count(*) from neon_auth."user")::int as total_users,
+    (select count(*) from neon_auth."user" where "emailVerified" is true)::int as verified_users,
+    (select count(*) from neon_auth."user" where "createdAt">=now()-interval '7 days')::int as new_users_7d,
+    (select count(*) from subscriptions where status in ('active','trialing','past_due'))::int as active_subscriptions,
+    (select count(*) from analytics_events where created_at>=now()-interval '24 hours')::int as events_24h,
+    (select count(*) from support_requests where status='open')::int as open_support`;
+  return json({...rows[0],admin:{id:gate.user.id,email:gate.user.email,role:gate.user.role||'admin'}});
+}
+async function adminUsers(req,env,url){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const q=String(url.searchParams.get('q')||'').trim().slice(0,120).toLowerCase(),pattern='%'+q+'%';
+  const limit=Math.max(1,Math.min(100,Number(url.searchParams.get('limit'))||50));
+  const offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
+  const subscriptionAllowed=new Set(['all','free','active','trialing','past_due','canceled']);
+  const verifiedAllowed=new Set(['all','verified','unverified']);
+  const accountAllowed=new Set(['all','active','banned']);
+  const subscription=subscriptionAllowed.has(url.searchParams.get('subscription'))?url.searchParams.get('subscription'):'all';
+  const verified=verifiedAllowed.has(url.searchParams.get('verified'))?url.searchParams.get('verified'):'all';
+  const accountState=accountAllowed.has(url.searchParams.get('account_state'))?url.searchParams.get('account_state'):'all';
+  const countRows=await gate.sql`
+    select count(*)::int as total
+    from neon_auth."user" u
+    left join subscriptions s on s.user_id=u.id
+    where (${q}='' or lower(u.email) like ${pattern} or lower(u.name) like ${pattern} or u.id::text like ${pattern})
+      and (${subscription}='all' or coalesce(s.status,'free')=${subscription})
+      and (${verified}='all' or (${verified}='verified' and u."emailVerified" is true) or (${verified}='unverified' and u."emailVerified" is false))
+      and (${accountState}='all' or (${accountState}='banned' and coalesce(u.banned,false) is true) or (${accountState}='active' and coalesce(u.banned,false) is false))`;
+  const users=await gate.sql`
+    with activity as (
+      select user_id,count(*)::int as event_count,max(created_at) as last_activity
+      from analytics_events where user_id is not null group by user_id
+    ), support as (
+      select user_id,count(*)::int as support_count,count(*) filter(where status='open')::int as open_support
+      from support_requests where user_id is not null group by user_id
+    )
+    select u.id,u.name,u.email,u."emailVerified" as email_verified,u.role,coalesce(u.banned,false) as banned,
+      u."createdAt" as created_at,u."updatedAt" as updated_at,
+      coalesce(s.status,'free') as subscription_status,s.plan,s.current_period_end,s.cancel_at_period_end,
+      (p.stripe_customer_id is not null) as has_billing_profile,
+      coalesce(cardinality(pref.favorites),0)::int as favorites_count,pref.last_room,pref.last_track,pref.updated_at as preference_updated_at,
+      coalesce(a.event_count,0)::int as event_count,a.last_activity,
+      coalesce(sp.support_count,0)::int as support_count,coalesce(sp.open_support,0)::int as open_support
+    from neon_auth."user" u
+    left join profiles p on p.user_id=u.id
+    left join subscriptions s on s.user_id=u.id
+    left join user_preferences pref on pref.user_id=u.id
+    left join activity a on a.user_id=u.id
+    left join support sp on sp.user_id=u.id
+    where (${q}='' or lower(u.email) like ${pattern} or lower(u.name) like ${pattern} or u.id::text like ${pattern})
+      and (${subscription}='all' or coalesce(s.status,'free')=${subscription})
+      and (${verified}='all' or (${verified}='verified' and u."emailVerified" is true) or (${verified}='unverified' and u."emailVerified" is false))
+      and (${accountState}='all' or (${accountState}='banned' and coalesce(u.banned,false) is true) or (${accountState}='active' and coalesce(u.banned,false) is false))
+    order by u."createdAt" desc,u.id
+    limit ${limit} offset ${offset}`;
+  return json({total:countRows[0]?.total||0,offset,limit,users});
+}
+
 async function stripe(env,path,params){
   if(!env.STRIPE_RESTRICTED_KEY)throw new Error('Stripe is not configured');
   const form=new URLSearchParams();for(const [k,v] of Object.entries(params||{}))if(v!==undefined&&v!==null)form.set(k,String(v));
@@ -161,7 +236,7 @@ async function me(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
   const profile=await ensureProfile(auth.user,env),subscription=await subscriptionFor(auth.user.id,env),preferences=await preferenceFor(auth.user.id,env);
   const premium=!!subscription&&ACTIVE.has(subscription.status)&&(!subscription.current_period_end||new Date(subscription.current_period_end).getTime()>Date.now());
-  return json({user:{id:auth.user.id,email:auth.user.email,name:auth.user.name},profile,subscription,premium,preferences});
+  return json({user:{id:auth.user.id,email:auth.user.email,name:auth.user.name},profile,subscription,premium,preferences,admin:adminIdentity(auth.user,env)});
 }
 async function preferences(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
@@ -239,6 +314,8 @@ async function api(req,env,url){
   if(url.pathname==='/api/checkout'&&req.method==='POST')return checkout(req,env);
   if(url.pathname==='/api/portal'&&req.method==='POST')return portal(req,env);
   if(url.pathname==='/api/events'&&req.method==='POST')return events(req,env);
+  if(url.pathname==='/api/admin/summary'&&req.method==='GET')return adminSummary(req,env);
+  if(url.pathname==='/api/admin/users'&&req.method==='GET')return adminUsers(req,env,url);
   if(url.pathname==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req,env);
   if(url.pathname==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,env,url);
   if(url.pathname==='/api/library/provider/stream'&&(req.method==='GET'||req.method==='HEAD'))return providerBinary(req,env,url,'stream');
