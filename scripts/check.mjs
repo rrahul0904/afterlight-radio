@@ -10,6 +10,8 @@ await access(path.join(pub,'library-runtime.js'));
 await access(path.join(pub,'offline-worker.js'));
 await access(path.join(pub,'queue-runtime.js'));
 await access(path.join(pub,'library-browser.js'));
+await access(path.join(pub,'admin-runtime.js'));
+await access(path.join(pub,'admin','index.html'));
 for(const slug of slugs){
   await access(path.join(pub,slug,'index.html'));
   for(let t=1;t<=3;t++){
@@ -106,7 +108,7 @@ const neonFn=await readFile(path.join(root,'functions/afterlight-lite.mjs'),'utf
 const runtimeSecrets=JSON.parse(await readFile(path.join(root,'api/runtime-secrets.json'),'utf8'));
 const vercelConfig=JSON.parse(await readFile(path.join(root,'vercel.json'),'utf8'));
 
-for(const needle of ["/api/auth/","/get-session","/api/health","/api/ready","/api/config","/api/me","/api/preferences","/api/checkout","/api/portal","/api/events","/api/support","/api/stripe/webhook","/api/library/provider/status","/api/library/provider/search","/api/library/provider/stream","/api/library/provider/artwork","NAVIDROME_BASE_URL","NAVIDROME_USERNAME","NAVIDROME_TOKEN","NAVIDROME_SALT","External music library must use HTTPS","External music library host is not allowed","streamUrl:'/api/library/provider/stream?id='","Stripe-Signature","2026-07-29.dahlia","buy.stripe.com","locked_prefilled_email"]){
+for(const needle of ["/api/auth/","/get-session","/api/health","/api/ready","/api/config","/api/me","/api/preferences","/api/checkout","/api/portal","/api/events","/api/support","/api/stripe/webhook","/api/library/provider/status","/api/library/provider/search","/api/library/provider/stream","/api/library/provider/artwork","/api/admin/summary","/api/admin/users","AFTERLIGHT_ADMIN_EMAILS",'neon_auth."user"',"Admin access required","NAVIDROME_BASE_URL","NAVIDROME_USERNAME","NAVIDROME_TOKEN","NAVIDROME_SALT","External music library must use HTTPS","External music library host is not allowed","streamUrl:'/api/library/provider/stream?id='","Stripe-Signature","2026-07-29.dahlia","buy.stripe.com","locked_prefilled_email"]){
   if(!core.includes(needle))throw new Error('Cloudflare API core capability missing: '+needle);
 }
 for(const eventName of ['offline_room_saved','offline_room_removed','queue_repeat_one','queue_finished','queue_shuffle_changed','queue_repeat_changed','library_opened','library_track_selected']){
@@ -127,14 +129,19 @@ if(previewServer.includes('NAVIDROME_TOKEN')||previewServer.includes('DATABASE_U
 if(Object.keys(runtimeSecrets).length!==0)throw new Error('Tracked runtime-secrets.json must remain empty');
 if(vercelConfig.outputDirectory!=='public'||vercelConfig.rewrites?.[0]?.destination!=='/api?path=:path*')throw new Error('Vercel routing config mismatch');
 
-for(const needle of ['Neon-Connection-String','Neon-Raw-Text-Output','DATABASE_URL','STRIPE_WEBHOOK_SECRET','/api/ready','/api/support','/api/stripe/webhook','/api/library/provider/status','/api/library/provider/search','/api/library/provider/stream','/api/library/provider/artwork','NAVIDROME_BASE_URL','NAVIDROME_USERNAME','NAVIDROME_TOKEN','NAVIDROME_SALT','External music library must use HTTPS','External music library host is not allowed','backend:\'neon-function\'','buy.stripe.com'])if(!neonFn.includes(needle))throw new Error('Production Neon Function missing: '+needle);
+for(const needle of ['Neon-Connection-String','Neon-Raw-Text-Output','DATABASE_URL','STRIPE_WEBHOOK_SECRET','/api/ready','/api/support','/api/stripe/webhook','/api/library/provider/status','/api/library/provider/search','/api/library/provider/stream','/api/library/provider/artwork','/api/admin/summary','/api/admin/users','AFTERLIGHT_ADMIN_EMAILS','neon_auth."user"','Admin access required','NAVIDROME_BASE_URL','NAVIDROME_USERNAME','NAVIDROME_TOKEN','NAVIDROME_SALT','External music library must use HTTPS','External music library host is not allowed','backend:\'neon-function\'','buy.stripe.com'])if(!neonFn.includes(needle))throw new Error('Production Neon Function missing: '+needle);
 new Function(neonFn.replace(/export default[\s\S]*$/,''));
 
 const migration=await readFile(path.join(root,'neon/migrations/20260908_afterlight_mvp.sql'),'utf8');
 for(const needle of ['references neon_auth."user"(id)','user_preferences','subscriptions','analytics_events','support_requests'])if(!migration.includes(needle))throw new Error('Neon schema missing: '+needle);
 
 const account=await readFile(path.join(root,'account.html'),'utf8');
-for(const needle of ['/api/me','/api/portal','/api/auth/sign-in/email','Saved places','Manage billing'])if(!account.includes(needle))throw new Error('Account portal missing: '+needle);
+for(const needle of ['/api/me','/api/portal','/api/auth/sign-in/email','Saved places','Manage billing','adminConsole','/admin/'])if(!account.includes(needle))throw new Error('Account portal missing: '+needle);
+const admin=await readFile(path.join(root,'admin.html'),'utf8');
+const adminRuntime=await readFile(path.join(root,'scripts/admin-runtime.js'),'utf8');
+new Function(adminRuntime);
+for(const needle of ['Afterlight · Admin','Registered users','Verified emails','Active premium','Search name, email, or user ID','/api/admin/summary','/api/admin/users','No registered Neon Auth users exist yet'])if(!(admin+adminRuntime).includes(needle))throw new Error('Admin portal missing: '+needle);
+for(const forbidden of ['localStorage.setItem(\'admin','sessionStorage.setItem(\'admin','?admin=true'])if((admin+adminRuntime).includes(forbidden))throw new Error('Client-side admin bypass detected: '+forbidden);
 const support=await readFile(path.join(root,'legal/support.html'),'utf8');
 for(const needle of ['/api/support','supportForm','Subscription cancellation','Received. Your support request has been saved.'])if(!support.includes(needle))throw new Error('Support surface missing: '+needle);
 const privacy=await readFile(path.join(root,'legal/privacy.html'),'utf8');
@@ -142,9 +149,9 @@ for(const needle of ['Vercel','Neon','Stripe'])if(!privacy.includes(needle))thro
 if(privacy.includes('Supabase'))throw new Error('Stale Supabase processor remains in privacy notice');
 const terms=await readFile(path.join(root,'legal/terms.html'),'utf8');
 for(const needle of ['Afterlight Support','When Stripe self-service billing is available','When self-service billing is unavailable','billing changes and cancellation requests are handled through'])if(!terms.includes(needle))throw new Error('Terms must describe billing management and fallback accurately: '+needle);
-for(const page of ['privacy','terms','support','account']){
+for(const page of ['privacy','terms','support','account','admin']){
   const built=await readFile(path.join(pub,page,'index.html'),'utf8');
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account portal, support intake, 36 arranged stereo music files with music-quality gate, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account + protected admin user portal, support intake, 36 arranged stereo music files with music-quality gate, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');

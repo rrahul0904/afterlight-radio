@@ -70,7 +70,7 @@ footer{padding:24px 28px;border-top:1px solid rgba(32,28,23,.14);font-size:11px;
       <h2 id="accountName">Listener</h2>
       <div class="row"><span>Email</span><span id="accountEmail" class="right"></span></div>
       <div class="row"><span>Account ID</span><span id="accountId" class="right" style="font-family:ui-monospace,monospace;font-size:10px"></span></div>
-      <div class="actions"><button id="signOut" class="secondary">Sign out</button><a class="secondary" href="/support/">Support</a></div>
+      <div class="actions"><button id="signOut" class="secondary">Sign out</button><a class="secondary" href="/support/">Support</a><a id="adminConsole" class="secondary" href="/admin/" hidden>Admin console</a></div>
     </section>
 
     <section class="card">
@@ -104,7 +104,7 @@ function render(){
   const signed=!!me?.user;$('signedOut').hidden=signed;$('signedIn').hidden=!signed;$('signOutTop').hidden=!signed;if(!signed)return;
   const sub=me.subscription||{},pref=me.preferences||{},premium=!!me.premium;
   $('hello').textContent=(me.user.name?me.user.name+', this is':'Your')+' Afterlight.';
-  $('accountName').textContent=me.user.name||'Listener';$('accountEmail').textContent=me.user.email||'';$('accountId').textContent=me.user.id||'';
+  $('accountName').textContent=me.user.name||'Listener';$('accountEmail').textContent=me.user.email||'';$('accountId').textContent=me.user.id||'';$('adminConsole').hidden=!me.admin;
   $('planTitle').textContent=premium?'Afterlight+':'Free collection';$('planStatus').textContent=sub.status||'Free';
   $('billingCycle').textContent=sub.plan==='annual'?'Annual':sub.plan==='monthly'?'Monthly':'—';$('periodEnd').textContent=date(sub.current_period_end);
   $('cancelState').textContent=sub.cancel_at_period_end?'Cancels at period end':'Not scheduled';
