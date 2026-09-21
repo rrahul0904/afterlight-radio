@@ -85,6 +85,19 @@ const musicManifest=JSON.parse(await readFile(path.join(pub,'music-manifest.json
 if(musicManifest.version!==3||musicManifest.tracks?.length!==36||musicManifest.thirdPartyAudio!==false)throw new Error('Music manifest v3 contract missing');
 if(musicManifest.tracks.some(track=>track.channels!==2||track.bars!==12||track.generator!=='afterlight-composition-engine-v3'))throw new Error('Music manifest renderer contract drifted');
 
+const musicLab=await readFile(path.join(root,'scripts/music-lab.mjs'),'utf8');
+const musicReviewGate=await readFile(path.join(root,'scripts/music-review-gate.mjs'),'utf8');
+const catalogPolicy=JSON.parse(await readFile(path.join(root,'music','catalog-policy.json'),'utf8'));
+new Function(musicLab.replace(/^import .*$/gm,'').replace(/await /g,''));
+new Function(musicReviewGate.replace(/^import .*$/gm,'').replace(/await /g,''));
+for(const needle of ['renderMusicCandidate','review.html','technicalPass','Export review JSON','Nothing is production-approved automatically','listenedSeconds']){
+  if(!musicLab.includes(needle))throw new Error('Music Lab contract missing: '+needle);
+}
+for(const needle of ['minimumReviewers','minimumListenedSeconds','minimumScores','shortlistVotes','technical QC failed']){
+  if(!musicReviewGate.includes(needle))throw new Error('Music review gate missing: '+needle);
+}
+if(catalogPolicy.production?.minimumReviewers<2||catalogPolicy.production?.minimumScores?.musicality<4||catalogPolicy.production?.minimumScores?.fatigueResistance<4)throw new Error('Production music review policy is too weak');
+
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const wrangler=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
 if(pkg.scripts.build!=='node scripts/build.mjs')throw new Error('Unexpected build command');
@@ -154,4 +167,4 @@ for(const page of ['privacy','terms','support','account','admin']){
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account + protected admin user portal, support intake, 36 arranged stereo music files with music-quality gate, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming and bounded structured lyrics, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account + protected admin user portal, support intake, human-gated long-form Music Lab candidate pipeline, 36 arranged stereo music files with music-quality gate, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming and bounded structured lyrics, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
