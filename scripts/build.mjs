@@ -6,7 +6,8 @@ const root=process.cwd(),out=path.join(root,'public'),slugs=audioRoomSlugs;
 const improveContrast=html=>html
   .replaceAll('#756b5f','#675e53')
   .replaceAll('#766d61','#675e53');
-const injectScript=(html,src)=>html.replace('</body>',`<script src="${src}"></script>\n</body>`);
+const SHELL_REV='offline2';
+const injectScript=(html,src)=>html.replace('</body>',`<script src="${src}?v=${SHELL_REV}"></script>\n</body>`);
 await rm(out,{recursive:true,force:true});
 await mkdir(out,{recursive:true});
 const sourceHtml=await readFile(path.join(root,'index.html'),'utf8');
