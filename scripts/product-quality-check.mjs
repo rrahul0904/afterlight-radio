@@ -45,8 +45,8 @@ for(const needle of ['/api/auth/sign-in/social',"provider:'google'",'Continue wi
 for(const needle of ['audio.loop=false','audio.onended','t=(t+1)%3','continuous:true']){
   if(!audioContinuity.includes(needle))throw new Error('Room audio continuity missing: '+needle);
 }
-for(const needle of ['const sr=32000','major7','minor7','dorian','softSaw','brushed snare','multi-tap room reverb','d1=Math.floor(sr*.137)']){
-  if(!audioSource.includes(needle))throw new Error('Rich audio engine capability missing: '+needle);
+for(const needle of ['const sr=32000,bars=8','major7','minor7','dorian','softSaw','motifBanks','sectionForBar','chordDegrees','warm narrative','rhythmic lift','late-night drift','Multi-tap room reverb','d1=Math.floor(sr*.113)','music-manifest.json','afterlight-composition-engine-v2']){
+  if(!audioSource.includes(needle))throw new Error('Composition Engine v2 capability missing: '+needle);
 }
 
 // Verify the actual generated PCM is long enough and objectively audible.
@@ -64,4 +64,4 @@ if(rms<0.025)throw new Error('Audio is too quiet; RMS='+rms.toFixed(4));
 if(peak<0.30)throw new Error('Audio peak is too low; peak='+peak.toFixed(4));
 if(peak>0.999)throw new Error('Audio is clipping; peak='+peak.toFixed(4));
 
-console.log(`PASS: Google OAuth is exposed on sign-up/sign-in, mobile account access and full-bleed scene framing are guarded, billing support is functional, 12 distinct illustrated scenes are wired, each room rotates through three arrangements, and generated audio is ${duration.toFixed(1)}s @ ${sampleRate}Hz with RMS ${rms.toFixed(3)} / peak ${peak.toFixed(3)}`);
+console.log(`PASS: Google OAuth is exposed on sign-up/sign-in, mobile account access and full-bleed scene framing are guarded, billing support is functional, 12 distinct illustrated scenes are wired, each room rotates through three Composition Engine v2 arrangements, and generated audio is ${duration.toFixed(1)}s @ ${sampleRate}Hz with RMS ${rms.toFixed(3)} / peak ${peak.toFixed(3)}`);
