@@ -56,3 +56,35 @@ Afterlight v3 uses an independent **authored-elements + deterministic-arrangemen
 - Music from external streaming services.
 
 The target is user-experience parity at the high level: original, room-specific, evolving background music that can play continuously without sounding like one tiny loop.
+
+
+## Playback/library donor findings — September 21, 2026
+
+The listening product now needs to be compared against mature OpenSubsonic/Jellyfin-style clients, not against a generator.
+
+Current Navidrome's client ecosystem repeatedly surfaces the same mature-player capabilities: persistent queues, gapless or crossfade transitions, lyrics/metadata, offline caching, ReplayGain/normalization, casting, CarPlay/Android Auto, and system media controls.
+
+For Afterlight, these map as follows:
+
+- offline package / queue / Media Session: already implemented.
+- server-side Navidrome/Subsonic search, stream and artwork: already implemented.
+- line-timed provider lyrics: implemented in the phase-2 provider contract through authenticated `getLyricsBySongId` normalization.
+- true crossfade/gapless: still pending; do not label simple next-track autoplay as gapless.
+- ReplayGain/normalization: generator-side quality/loudness guards exist for first-party audio; provider ReplayGain remains separate future work.
+- cast/car surfaces: future platform adapters.
+- Jellyfin/Emby: future providers behind the same normalized contract.
+
+References:
+- https://www.navidrome.org/apps/
+- https://www.navidrome.org/docs/developers/subsonic-api/
+- https://opensubsonic.netlify.app/docs/endpoints/getlyricsbysongid/
+
+### Lyrics boundary
+
+Provider lyrics come only from the authenticated user's configured self-hosted library. Afterlight does not scrape lyric sites or bundle third-party lyric databases. The API returns a bounded line-level model and intentionally drops arbitrary provider fields.
+
+## Creation-studio boundary
+
+ACE-Step / prompt-to-music / stems / timeline editing / regenerate / repaint / extend belong to **Open Music Studio**, the separate Silens-derived creation product. They should not be added to Afterlight's player merely to increase feature count.
+
+The audited tracker still has no verified owned Open Music Studio repository, so creation-studio implementation remains a repository-reconciliation task rather than an Afterlight subfolder.
