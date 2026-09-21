@@ -22,6 +22,8 @@ The adapter maps them to the OpenStream endpoints:
 
 Responses are bounded and sanitized before they reach the browser. Fields whose names look like keys, tokens, secrets, passwords, or authorization data are redacted, and credential-like query strings are scrubbed.
 
+When the provider is enabled and reachable, the existing Afterlight Music Library exposes a **Self-hosted** source tab. It renders normalized server-library items and active channels with text-only DOM construction. When the provider is disabled, unreachable, or the user is signed out, that source remains hidden and the normal 36-track Afterlight catalog behaves unchanged.
+
 ## Environment
 
 Configure secrets only in the server deployment:
@@ -48,6 +50,10 @@ OpenStream routes require an existing Afterlight signed-in session before the pr
 On Vercel, `api/index.js` validates the session against the existing Afterlight backend and then calls the provider adapter locally so OpenStream credentials never transit through the browser or Neon proxy.
 
 On Cloudflare Workers, `src/api-core.js` validates the Neon Auth session before invoking the same provider adapter.
+
+## Browser/runtime integration
+
+The OpenStream browser adapter ships with runtime shell revision `offline3`, so users who previously cached the JellyBox/offline2 shell receive a distinct asset revision after this provider slice deploys. The adapter itself degrades offline by hiding the Self-hosted source; owned Afterlight tracks continue to use the certified offline package.
 
 ## Deliberately not included yet
 
