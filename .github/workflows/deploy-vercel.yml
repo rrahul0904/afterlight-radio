@@ -62,8 +62,8 @@ jobs:
           node - <<'NODE'
           const fs=require('fs');
           const m=JSON.parse(fs.readFileSync('public/music-manifest.json','utf8'));
-          if(m.version!==2||m.tracks?.length!==36) throw new Error('Composition Engine v2 manifest is incomplete');
-          if(!m.tracks.every(t=>t.generator==='afterlight-composition-engine-v2')) throw new Error('Unexpected music generator provenance');
+          if(m.version!==3||m.tracks?.length!==36||m.thirdPartyAudio!==false) throw new Error('Composition Engine v3 manifest is incomplete');
+          if(!m.tracks.every(t=>t.generator==='afterlight-composition-engine-v3'&&t.channels===2&&t.bars===12&&t.model==='authored-elements-plus-deterministic-arrangement')) throw new Error('Unexpected music generator provenance');
           NODE
 
       - name: Install pinned Vercel CLI
@@ -96,8 +96,9 @@ jobs:
           node - <<'NODE'
           const fs=require('fs');
           const m=JSON.parse(fs.readFileSync('/tmp/music-manifest.json','utf8'));
-          if(m.version!==2||m.tracks?.length!==36) throw new Error('Hosted music manifest is not Composition Engine v2');
-          if(m.tracks.find(t=>t.id==='rooftop:1')?.title!=='Orange on the parapet') throw new Error('Hosted Rooftop catalog drift');
+          if(m.version!==3||m.tracks?.length!==36||m.thirdPartyAudio!==false) throw new Error('Hosted music manifest is not Composition Engine v3');
+          const rooftop=m.tracks.find(t=>t.id==='rooftop:1');
+          if(rooftop?.title!=='Orange on the parapet'||rooftop.channels!==2||rooftop.bars!==12||rooftop.generator!=='afterlight-composition-engine-v3') throw new Error('Hosted Rooftop catalog drift');
           NODE
           curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/audio/rooftop/1.wav" -o /tmp/rooftop.wav
           test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
@@ -105,4 +106,4 @@ jobs:
           RANGE_HEADERS="$(curl --fail --silent --show-error --retry 8 --retry-all-errors -D - -o /tmp/range.wav -H 'Range: bytes=100-199' "$DEPLOYMENT_URL/audio/rooftop/1.wav")"
           test "$(wc -c < /tmp/range.wav)" -eq 100
           printf '%s' "$RANGE_HEADERS" | grep -qi '^content-range: bytes 100-199/'
-          echo "Exact revision $GITHUB_SHA, Composition Engine v2 manifest, Rooftop audio and byte-range seeking are live." >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact revision $GITHUB_SHA, Composition Engine v3 stereo manifest, Rooftop audio and byte-range seeking are live." >> "$GITHUB_STEP_SUMMARY"

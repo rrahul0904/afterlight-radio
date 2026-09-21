@@ -74,6 +74,15 @@ for(const forbidden of ['fetch(','innerHTML=entry.title','innerHTML=entry.roomNa
 }
 if(!builtIndex.includes('/library-browser.js?v=offline2'))throw new Error('Versioned library browser not injected into built room routes');
 
+const audioEngine=await readFile(path.join(root,'scripts/audio-library.mjs'),'utf8');
+for(const needle of ["version:3","channels:2","bars:BARS","authored-elements-plus-deterministic-arrangement","thirdPartyAudio:false","buildScore","sectionFor","transformMotif","afterlight-composition-engine-v3"]){
+  if(!audioEngine.includes(needle))throw new Error('Composition engine contract missing: '+needle);
+}
+if(audioEngine.includes('const sr=32000,bars=8'))throw new Error('Legacy short mono-loop composition engine returned');
+const musicManifest=JSON.parse(await readFile(path.join(pub,'music-manifest.json'),'utf8'));
+if(musicManifest.version!==3||musicManifest.tracks?.length!==36||musicManifest.thirdPartyAudio!==false)throw new Error('Music manifest v3 contract missing');
+if(musicManifest.tracks.some(track=>track.channels!==2||track.bars!==12||track.generator!=='afterlight-composition-engine-v3'))throw new Error('Music manifest renderer contract drifted');
+
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const wrangler=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
 if(pkg.scripts.build!=='node scripts/build.mjs')throw new Error('Unexpected build command');
@@ -138,4 +147,4 @@ for(const page of ['privacy','terms','support','account']){
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account portal, support intake, 36 arranged stereo music files with music-quality gate, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');

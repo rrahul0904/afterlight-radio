@@ -114,20 +114,37 @@ jobs:
           grep -qi '^permissions-policy: camera=(), microphone=(), geolocation=()' /tmp/headers.txt
           grep -qi '^cross-origin-opener-policy: same-origin' /tmp/headers.txt
 
-      - name: Audio delivery
+      - name: Music manifest and stereo audio delivery
         shell: bash
         run: |
           set -euo pipefail
+          curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/music-manifest.json" -o /tmp/music-manifest.json
+          node - <<'NODE'
+          const fs=require('fs');
+          const m=JSON.parse(fs.readFileSync('/tmp/music-manifest.json','utf8'));
+          if(m.version!==3||m.tracks?.length!==36||m.thirdPartyAudio!==false) throw new Error('Production music manifest is not v3');
+          const rooftop=m.tracks.find(t=>t.id==='rooftop:1');
+          if(!rooftop||rooftop.generator!=='afterlight-composition-engine-v3'||rooftop.channels!==2||rooftop.bars!==12) throw new Error('Production Rooftop music metadata drifted');
+          NODE
           curl --fail --silent --show-error --retry 4 --retry-all-errors "$APP/audio/rooftop/1.wav" -o /tmp/rooftop.wav
-          test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
+          test "$(wc -c < /tmp/rooftop.wav)" -gt 4000000
           test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
           node - <<'NODE'
           const fs=require('fs');const b=fs.readFileSync('/tmp/rooftop.wav');
-          const rate=b.readUInt32LE(24),bytes=b.readUInt32LE(40),duration=bytes/(rate*2);let sum=0,peak=0,n=0;
-          for(let p=44;p+1<b.length;p+=16){const a=Math.abs(b.readInt16LE(p))/32768;sum+=a*a;peak=Math.max(peak,a);n++}
-          const rms=Math.sqrt(sum/n);console.log({rate,duration,rms,peak});
-          if(rate!==32000||duration<22||rms<.025||peak<.30)process.exit(1);
+          const channels=b.readUInt16LE(22),rate=b.readUInt32LE(24),bits=b.readUInt16LE(34),bytes=b.readUInt32LE(40);
+          const duration=bytes/(rate*channels*(bits/8));let sum=0,peak=0,diff=0,mono=0,n=0;
+          const frameBytes=channels*(bits/8);
+          for(let p=44;p+frameBytes-1<b.length;p+=frameBytes*8){
+            const l=b.readInt16LE(p)/32768,r=b.readInt16LE(p+2)/32768;
+            sum+=(l*l+r*r)/2;peak=Math.max(peak,Math.abs(l),Math.abs(r));diff+=(l-r)*(l-r);mono+=((l+r)*.5)**2;n++;
+          }
+          const rms=Math.sqrt(sum/n),stereo=Math.sqrt(diff/n)/(Math.sqrt(mono/n)+.0001);
+          console.log({channels,rate,bits,duration,rms,peak,stereo});
+          if(channels!==2||rate!==32000||bits!==16||duration<30||rms<.012||peak<.12||stereo<.04)process.exit(1);
           NODE
+          RANGE_HEADERS="$(curl --fail --silent --show-error --retry 4 --retry-all-errors -D - -o /tmp/range.wav -H 'Range: bytes=100-199' "$APP/audio/rooftop/1.wav")"
+          test "$(wc -c < /tmp/range.wav)" -eq 100
+          printf '%s' "$RANGE_HEADERS" | grep -qi '^content-range: bytes 100-199/'
 
       - name: Support endpoint validation
         shell: bash
