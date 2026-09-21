@@ -48,7 +48,7 @@ const accountDir=path.join(out,'account');
 await mkdir(accountDir,{recursive:true});
 const accountSource=improveContrast(await readFile(path.join(root,'account.html'),'utf8'));
 await writeFile(path.join(accountDir,'index.html'),injectScript(accountSource,'/account-enhancements.js'));
-const release=(process.env.AFTERLIGHT_RELEASE_SHA||process.env.VERCEL_GIT_COMMIT_SHA||'development').trim();
+const release=(process.env.AFTERLIGHT_RELEASE_SHA||process.env.VERCEL_GIT_COMMIT_SHA||process.env.RAILWAY_GIT_COMMIT_SHA||'development').trim();
 await writeFile(path.join(out,'release.txt'),release+'\n');
 await writeFile(path.join(out,'404.html'),html);
 await writeFile(path.join(out,'_headers'),`/*
