@@ -27,6 +27,12 @@ const progressions=[
   [0,5,3,4,0,5,4,4],
   [0,3,5,4,0,3,4,5]
 ];
+const trackProfiles={
+  1:{name:'arrival',lead:.72,counter:.22,bassMotion:.42,density:[.58,.72,.9,.68],register:0},
+  2:{name:'drift',lead:.46,counter:.48,bassMotion:.26,density:[.45,.62,.78,.52],register:1},
+  3:{name:'afterhours',lead:.62,counter:.34,bassMotion:.58,density:[.66,.86,1,.74],register:0}
+};
+const sectionByBar=[0,0,1,1,2,2,3,3];
 const TAU=Math.PI*2;
 function midi(n){return 440*Math.pow(2,(n-69)/12)}
 function hash(s){let h=2166136261>>>0;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
@@ -35,19 +41,37 @@ function fract(x){return x-Math.floor(x)}
 function tri(p){return 1-4*Math.abs(fract(p)-.5)}
 function softSaw(p){const a=TAU*p;return Math.sin(a)+.34*Math.sin(a*2)+.16*Math.sin(a*3)+.08*Math.sin(a*4)}
 function noteFromDegree(room,degree,octave=0){const scale=modes[room.mode],d=((degree%7)+7)%7,oct=Math.floor(degree/7)+octave;return midi(room.root+scale[d]+12*oct)}
-function chord(room,degree,track){const color=track===2?[0,2,4,6]:track===3?[0,2,5,6]:[0,2,4,5];return color.map((step,k)=>noteFromDegree(room,degree+step,k===3?-1:0))}
+function chord(room,degree,track,bar=0){
+  const color=track===2?[0,2,4,6]:track===3?[0,2,5,6]:[0,2,4,5];
+  const inversion=(bar+track)%3;
+  return color.map((step,k)=>{
+    let octave=k===3?-1:0;
+    if(k<inversion)octave+=1;
+    return noteFromDegree(room,degree+step,octave);
+  });
+}
+function motifFor(room,track){
+  const r=rng(hash(room.slug+':motif:'+track)),profile=trackProfiles[track],base=[0,2,4,5,4,2,1,0];
+  return Array.from({length:16},(_,step)=>{
+    const anchor=base[(step+track*2)%base.length];
+    const variation=r()<.26?(r()<.5?-1:1):0;
+    const octave=(step%8===6&&r()>.55)?7:0;
+    return anchor+variation+octave+profile.register*7;
+  });
+}
 function envAD(local,attack,decay){if(local<0)return 0;if(local<attack)return local/attack;return Math.exp(-(local-attack)/decay)}
 
 function synth(room,track){
   const beat=60/room.bpm,barDur=beat*4,dur=barDur*bars,N=Math.floor(sr*dur),dry=new Float32Array(N),rand=rng(hash(room.slug+':'+track));
-  const prog=progressions[(track-1)%progressions.length];let noiseLP=0,crackle=0;
+  const prog=progressions[(track-1)%progressions.length],profile=trackProfiles[track],motif=motifFor(room,track);
+  let noiseLP=0,crackle=0;
   for(let n=0;n<N;n++){
     const x=n/sr,bar=Math.floor(x/barDur)%bars,beatPos=(x%barDur)/beat,beatIndex=Math.floor(beatPos),sub=beatPos-beatIndex;
-    const degree=prog[bar],frequencies=chord(room,degree,track),wow=.0018*Math.sin(TAU*.17*x)+.0011*Math.sin(TAU*.07*x+1.3);
+    const degree=prog[bar],section=sectionByBar[bar],density=profile.density[section],frequencies=chord(room,degree,track,bar),wow=.0018*Math.sin(TAU*.17*x)+.0011*Math.sin(TAU*.07*x+1.3);
     let y=0;
 
     // Warm sustained chord bed with slow breathing and detune.
-    const padAmp=.055+.055*room.warm;
+    const padAmp=(.05+.052*room.warm)*(.82+.18*density);
     const breath=.78+.22*Math.sin(TAU*(1/(barDur*2))*x+.5);
     for(let k=0;k<frequencies.length;k++){
       const f=frequencies[k]*(k===1?1.002:k===2?.998:1);
@@ -63,25 +87,41 @@ function synth(room,track){
     if(keyLocal>=0){
       const deg=degree+sequence[(step+track*3)%sequence.length],f=noteFromDegree(room,deg,track===3?1:0),e=envAD(keyLocal,.008,.24+.22*room.keys);
       const bell=Math.sin(TAU*f*x)+.38*Math.sin(TAU*f*2.01*x)+.14*Math.sin(TAU*f*3.98*x);
-      y+=bell*e*(.025+.075*room.keys);
+      y+=bell*e*(.025+.075*room.keys)*(.8+.2*density);
+    }
+
+    // Track-specific melodic motif. The melody evolves by section instead of looping the same figure.
+    const sixteenth=beat/4,ms=Math.floor(x/sixteenth),ml=x-ms*sixteenth;
+    if((ms%2===0||section===2)&&((ms+bar+track)%4!==3)){
+      const phraseStep=(ms+section*3)%motif.length;
+      const deg=degree+motif[phraseStep],f=noteFromDegree(room,deg,track===2?0:1);
+      const e=envAD(ml,.006,.13+.05*section);
+      const lead=Math.sin(TAU*f*x)+.22*Math.sin(TAU*f*2*x)+.08*Math.sin(TAU*f*3*x);
+      y+=lead*e*(.012+.04*profile.lead)*density;
+    }
+
+    // Sparse counter-line answers the main motif in the B section and outro.
+    if((section===2||section===3)&&ms%4===3){
+      const deg=degree+[4,2,5,1][(ms>>2)%4],f=noteFromDegree(room,deg,0),e=envAD(ml,.012,.24);
+      y+=(Math.sin(TAU*f*x)+.18*Math.sin(TAU*f*.5*x))*e*(.008+.025*profile.counter);
     }
 
     // Muted guitar/pluck pattern for motion.
     const quarter=beat,qs=Math.floor(x/quarter),ql=x-qs*quarter;
     if(((qs+track)%2===0)||room.pluck>.65){
       const deg=degree+[0,4,2,5][qs%4],f=noteFromDegree(room,deg,0),e=envAD(ql,.003,.11+.16*room.pluck);
-      y+=(tri(f*x)+.22*Math.sin(TAU*f*2*x))*e*(.018+.055*room.pluck);
+      y+=(tri(f*x)+.22*Math.sin(TAU*f*2*x))*e*(.016+.05*room.pluck)*(.72+.28*density);
     }
 
     // Round bass line.
-    const bassF=noteFromDegree(room,degree-7,0),bassEnv=.65+.35*Math.exp(-sub*3.5);
-    y+=(Math.sin(TAU*bassF*x)+.18*Math.sin(TAU*bassF*2*x))*bassEnv*(.045+.025*room.warm);
+    const bassDegree=degree-7+((beatIndex===3&&profile.bassMotion>.4)?[0,1,2,4][bar%4]:0),bassF=noteFromDegree(room,bassDegree,0),bassEnv=.65+.35*Math.exp(-sub*3.5);
+    y+=(Math.sin(TAU*bassF*x)+.18*Math.sin(TAU*bassF*2*x))*bassEnv*(.042+.024*room.warm)*(.82+.18*density);
 
     // Soft kick, brushed snare and hats. Kept intentionally restrained.
     const beatLocal=x-Math.floor(x/beat)*beat;
-    if(beatLocal<.17){const sweep=48+72*Math.exp(-beatLocal*25);y+=Math.sin(TAU*sweep*x)*Math.exp(-beatLocal*24)*(.04+.09*room.drums)}
+    if(beatLocal<.17&&!(section===0&&beatIndex===2)){const sweep=48+72*Math.exp(-beatLocal*25);y+=Math.sin(TAU*sweep*x)*Math.exp(-beatLocal*24)*(.035+.085*room.drums)*density}
     const half=x%(beat/2);
-    if(half<.055){noiseLP=noiseLP*.72+(rand()*2-1)*.28;y+=noiseLP*Math.exp(-half*70)*(.012+.038*room.drums)}
+    if(half<.055&&!(section===0&&track===2)){noiseLP=noiseLP*.72+(rand()*2-1)*.28;y+=noiseLP*Math.exp(-half*70)*(.01+.035*room.drums)*density}
     if((beatIndex===1||beatIndex===3)&&beatLocal<.12){const brush=(rand()*2-1)*Math.exp(-beatLocal*30);y+=brush*(.018+.05*room.drums)}
 
     // Room tone: rain/tape/air rather than white-noise hiss.
