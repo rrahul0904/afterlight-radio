@@ -52,8 +52,10 @@ for(const [name,type,contextOptions] of targets){
   const context=await browser.newContext(contextOptions);
   const page=await context.newPage();
   const errors=[];
-  page.on('pageerror',e=>{if(!expectedSignedOutNoise(e.message))errors.push('pageerror: '+e.message)});
-  page.on('console',m=>{if(m.type()==='error'&&!expectedSignedOutNoise(m.text()))errors.push('console: '+m.text())});
+  let deliberateOffline=false;
+  const expectedOfflineNoise=message=>deliberateOffline&&/Failed to load resource: net::ERR_(?:INTERNET_DISCONNECTED|FAILED)/i.test(message);
+  page.on('pageerror',e=>{if(!expectedSignedOutNoise(e.message)&&!expectedOfflineNoise(e.message))errors.push('pageerror: '+e.message)});
+  page.on('console',m=>{if(m.type()==='error'&&!expectedSignedOutNoise(m.text())&&!expectedOfflineNoise(m.text()))errors.push('console: '+m.text())});
   try{
     let r=await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('home status '+r?.status());
@@ -191,6 +193,7 @@ for(const [name,type,contextOptions] of targets){
       const cdp=await context.newCDPSession(page);
       await cdp.send('Network.enable');
       await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
+      deliberateOffline=true;
       await context.setOffline(true);
       try{
         const offlineNav=await page.goto(base+'/rooftop/',{waitUntil:'domcontentloaded',timeout:12000});
@@ -222,6 +225,7 @@ for(const [name,type,contextOptions] of targets){
         }
       }finally{
         await context.setOffline(false);
+        deliberateOffline=false;
         await cdp.send('Network.setCacheDisabled',{cacheDisabled:false});
       }
     }
