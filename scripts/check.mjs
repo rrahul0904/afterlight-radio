@@ -8,6 +8,7 @@ await access(path.join(pub,'index.html'));
 await access(path.join(pub,'focus-room.js'));
 await access(path.join(pub,'library-runtime.js'));
 await access(path.join(pub,'offline-worker.js'));
+await access(path.join(pub,'queue-runtime.js'));
 for(const slug of slugs){
   await access(path.join(pub,slug,'index.html'));
   for(let t=1;t<=3;t++){
@@ -49,6 +50,18 @@ for(const forbidden of ['password','accessToken','apiKey','Authorization:']){
   if(libraryRuntime.includes(forbidden)||offlineWorker.includes(forbidden))throw new Error('Offline-library credential boundary drifted: '+forbidden);
 }
 if(!builtIndex.includes('/library-runtime.js'))throw new Error('Offline-library runtime not injected into built room routes');
+
+const queueRuntime=await readFile(path.join(root,'scripts/queue-runtime.js'),'utf8');
+new Function(queueRuntime);
+for(const needle of ['afterlight-radio:queue:v1','HISTORY_LIMIT=40','deterministicShuffle','repeat:\'all\'','queue_repeat_one','queue_finished','queue_shuffle_changed','queue_repeat_changed','Listening queue','Recent on this device','window.__afterlightQueue']){
+  if(!queueRuntime.includes(needle))throw new Error('Queue runtime contract missing: '+needle);
+}
+for(const forbidden of ['/api/preferences','/api/events',{toString(){return 'TODO'}}]){
+  const value=String(forbidden);
+  if(value==='TODO')continue;
+  if(queueRuntime.includes(value))throw new Error('Queue local-first boundary drifted: '+value);
+}
+if(!builtIndex.includes('/queue-runtime.js'))throw new Error('Queue runtime not injected into built room routes');
 
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const wrangler=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
@@ -105,4 +118,4 @@ for(const page of ['privacy','terms','support','account']){
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, explicit offline room caching with range playback and playback memory, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, explicit offline room caching with range playback and playback memory, durable local queue/history with shuffle-repeat restore, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
