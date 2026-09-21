@@ -92,6 +92,49 @@ for(const [name,type,contextOptions] of targets){
     await page.screenshot({path:`${shotDir}/${name}-auth-modal.png`,fullPage:true});
     await page.locator('#accountClose').click();
 
+    await page.locator('#focusModeBtn').waitFor({state:'visible',timeout:5000});
+    await page.locator('#focusModeBtn').click();
+    await page.locator('#focusRoomDialog').waitFor({state:'visible',timeout:5000});
+    await page.locator('#todoInput').fill('Browser linked todo');
+    await page.locator('#todoAdd').click();
+    await page.locator('[data-todo-use]').first().click();
+    if((await page.locator('#focusTask').inputValue())!=='Browser linked todo')throw new Error('todo did not populate focus task');
+    const todoBefore=await page.evaluate(()=>{
+      const state=JSON.parse(localStorage.getItem('afterlight-radio:focus-room:v1')||'{}');
+      return state.todos?.[0]||null;
+    });
+    if(!todoBefore?.id||todoBefore.title!=='Browser linked todo'||todoBefore.completedAt)throw new Error('todo did not persist locally '+JSON.stringify(todoBefore));
+    await page.locator('#focusStartOpen').click();
+    await page.waitForTimeout(1200);
+    const focusRunning=await page.evaluate(()=>({
+      active:document.querySelector('#focusModeBtn')?.classList.contains('active'),
+      stored:JSON.parse(localStorage.getItem('afterlight-radio:focus-active:v1')||'null'),
+      state:JSON.parse(localStorage.getItem('afterlight-radio:focus-room:v1')||'{}')
+    }));
+    if(!focusRunning.active||!focusRunning.stored||focusRunning.stored.task!=='Browser linked todo'||focusRunning.stored.todoId!==todoBefore.id||focusRunning.stored.focusedSeconds<=0){
+      throw new Error('focus session did not persist todo linkage locally '+JSON.stringify(focusRunning));
+    }
+    await page.locator('#ambientBrown').fill('35');
+    const ambient=await page.evaluate(()=>JSON.parse(localStorage.getItem('afterlight-radio:focus-room:v1')||'{}').ambient?.brown);
+    if(Math.abs((ambient||0)-0.35)>.01)throw new Error('ambient mix did not persist locally '+ambient);
+    await page.screenshot({path:`${shotDir}/${name}-focus-mode.png`,fullPage:true});
+    await page.locator('#focusFinish').click();
+    await page.locator('[data-todo-toggle]').first().click();
+    const focusDone=await page.evaluate(()=>({
+      active:localStorage.getItem('afterlight-radio:focus-active:v1'),
+      state:JSON.parse(localStorage.getItem('afterlight-radio:focus-room:v1')||'{}')
+    }));
+    if(focusDone.active||!focusDone.state.sessions?.length||focusDone.state.sessions[0].task!=='Browser linked todo'||focusDone.state.sessions[0].todoId!==todoBefore.id||!focusDone.state.todos?.[0]?.completedAt){
+      throw new Error('focus/todo linkage did not finish into local history '+JSON.stringify(focusDone));
+    }
+    await page.locator('#focusTask').fill('Unlinked follow-up');
+    await page.locator('#focusStartOpen').click();
+    await page.waitForTimeout(200);
+    const followUp=await page.evaluate(()=>JSON.parse(localStorage.getItem('afterlight-radio:focus-active:v1')||'null'));
+    if(!followUp||followUp.todoId!==null)throw new Error('completed todo leaked into later focus session '+JSON.stringify(followUp));
+    await page.locator('#focusFinish').click();
+    await page.locator('#focusRoomClose').click();
+
     r=await page.goto(base+'/window/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('window status '+r?.status());
     await page.locator('#paintedScene svg').waitFor({state:'visible',timeout:8000});
