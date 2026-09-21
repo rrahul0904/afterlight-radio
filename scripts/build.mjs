@@ -63,4 +63,4 @@ await writeFile(path.join(out,'_headers'),`/*
 
 const count=await generateAudio(out);
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
-console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account portal, 3 legal pages and ${count} audio files (sample ${sample.size} bytes)`);
+console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account portal, 3 legal pages and ${count} composition-engine-v2 audio files + music manifest (sample ${sample.size} bytes)`);

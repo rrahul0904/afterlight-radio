@@ -1,5 +1,6 @@
 import { access, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 const root=process.cwd(),pub=path.join(root,'public');
 const slugs=['roma','window','long-way-home','two-hundred','one-more-log','rooftop','friends','backroom','headspace','last-bus','momentum','between'];
@@ -10,16 +11,44 @@ await access(path.join(pub,'library-runtime.js'));
 await access(path.join(pub,'offline-worker.js'));
 await access(path.join(pub,'queue-runtime.js'));
 await access(path.join(pub,'library-browser.js'));
+await access(path.join(pub,'music-manifest.json'));
+const audioHashes=new Set(),audioDurations=new Map();
 for(const slug of slugs){
   await access(path.join(pub,slug,'index.html'));
   for(let t=1;t<=3;t++){
     const p=path.join(pub,'audio',slug,t+'.wav'),s=await stat(p);
-    if(s.size<500000)throw new Error('Audio asset too small: '+p);
+    if(s.size<1000000)throw new Error('Audio asset too small for composed track: '+p);
     const h=await readFile(p);
     if(h.subarray(0,4).toString()!=='RIFF'||h.subarray(8,12).toString()!=='WAVE')throw new Error('Invalid WAV: '+p);
+    if(h.readUInt16LE(22)!==1||h.readUInt32LE(24)!==32000||h.readUInt16LE(34)!==16)throw new Error('Unexpected WAV format: '+p);
+    const duration=h.readUInt32LE(40)/(h.readUInt32LE(24)*2);
+    if(duration<20||duration>40)throw new Error('Unexpected composed track duration '+duration.toFixed(2)+'s: '+p);
+    audioDurations.set(slug+':'+t,duration);
+    audioHashes.add(createHash('sha256').update(h).digest('hex'));
   }
 }
+if(audioHashes.size!==36)throw new Error('Every generated track must have distinct rendered audio; unique='+audioHashes.size);
 for(const p of ['privacy','terms','support','account'])await access(path.join(pub,p,'index.html'));
+
+const musicManifest=JSON.parse(await readFile(path.join(pub,'music-manifest.json'),'utf8'));
+if(musicManifest.version!==2||musicManifest.generated!==true||musicManifest.tracks?.length!==36)throw new Error('Music manifest v2 must describe exactly 36 generated tracks');
+if(!/original procedural composition/i.test(musicManifest.rights||''))throw new Error('Music manifest must declare original procedural-composition provenance');
+const manifestIds=new Set(),manifestTitles=new Set();
+for(const track of musicManifest.tracks){
+  if(!track?.id||manifestIds.has(track.id))throw new Error('Music manifest track IDs must be unique');
+  if(!track?.title||manifestTitles.has(track.title))throw new Error('Music manifest track titles must be unique');
+  manifestIds.add(track.id);manifestTitles.add(track.title);
+  if(track.generator!=='afterlight-composition-engine-v2'||track.sampleRate!==32000||track.channels!==1||track.format!=='pcm_s16le')throw new Error('Music manifest renderer contract drifted for '+track.id);
+  if(track.bpm<50||track.bpm>100||!track.key||!track.style||!track.arrangement)throw new Error('Music manifest musical metadata incomplete for '+track.id);
+  const rendered=audioDurations.get(track.id);
+  if(!rendered||Math.abs(rendered-Number(track.durationSeconds))>.1)throw new Error('Music manifest duration mismatch for '+track.id);
+}
+
+const audioLibrarySource=await readFile(path.join(root,'scripts/audio-library.mjs'),'utf8');
+new Function(audioLibrarySource.replace(/^import[^\n]*\n/gm,'').replace(/export\s+/g,''));
+for(const needle of ['afterlight-composition-engine-v2','motifBanks','sectionForBar','chordDegrees','SIN_SIZE=8192','warm narrative','rhythmic lift','late-night drift','music-manifest.json']){
+  if(!audioLibrarySource.includes(needle))throw new Error('Composition-engine contract missing: '+needle);
+}
 
 const html=await readFile(path.join(root,'index.html'),'utf8');
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)],runtime=scripts.at(-1)?.[1];
@@ -135,4 +164,4 @@ for(const page of ['privacy','terms','support','account']){
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account portal, support intake, 36 distinct composition-engine-v2 audio tracks with manifest provenance, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');

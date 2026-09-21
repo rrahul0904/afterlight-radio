@@ -11,6 +11,7 @@ on:
       - 'scripts/offline-worker.js'
       - 'scripts/queue-runtime.js'
       - 'scripts/library-browser.js'
+      - 'scripts/audio-library.mjs'
       - 'scripts/browser-smoke.mjs'
       - '.github/workflows/browser-matrix.yml'
   push:
