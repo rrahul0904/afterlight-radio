@@ -178,15 +178,50 @@ for(const [name,type,contextOptions] of targets){
 
       await page.locator('#offlineRoom').click();
       await page.waitForFunction(()=>document.querySelector('#offlineRoom')?.getAttribute('aria-pressed')==='true',{timeout:20000});
-      const saved=await page.evaluate(()=>window.__afterlightLibrary?.isRoomOffline());
-      if(!saved)throw new Error('room did not report offline after explicit save');
+      const packageState=await page.evaluate(async()=>({
+        saved:await window.__afterlightLibrary?.isRoomOffline(),
+        packageUrls:window.__afterlightLibrary?.offlinePackageUrls('rooftop')||[],
+        shellUrls:window.__afterlightLibrary?.shellUrls||[]
+      }));
+      if(!packageState.saved)throw new Error('room did not report offline after explicit save');
+      if(packageState.packageUrls.length<12||packageState.shellUrls.length<8)throw new Error('offline package is missing runtime shell assets '+JSON.stringify(packageState));
+
       await page.reload({waitUntil:'domcontentloaded'});
       await page.waitForFunction(()=>!!navigator.serviceWorker.controller,{timeout:8000});
-      const range=await page.evaluate(async()=>{
-        const r=await fetch('/audio/rooftop/1.wav',{headers:{Range:'bytes=100-199'}});
-        return {status:r.status,length:(await r.arrayBuffer()).byteLength,range:r.headers.get('content-range')};
-      });
-      if(range.status!==206||range.length!==100||range.range!=='bytes 100-199/1755472')throw new Error('cached range playback failed '+JSON.stringify(range));
+      const cdp=await context.newCDPSession(page);
+      await cdp.send('Network.enable');
+      await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
+      await context.setOffline(true);
+      try{
+        const offlineNav=await page.goto(base+'/rooftop/',{waitUntil:'domcontentloaded',timeout:12000});
+        if(!offlineNav?.ok())throw new Error('offline cold navigation status '+offlineNav?.status());
+        await page.locator('#queueBtn').waitFor({state:'visible',timeout:5000});
+        await page.locator('#libraryBtn').waitFor({state:'visible',timeout:5000});
+        const offlineRuntime=await page.evaluate(async()=>{
+          const shell=await fetch('/library-browser.js',{cache:'reload'});
+          const range=await fetch('/audio/rooftop/1.wav',{headers:{Range:'bytes=100-199'},cache:'reload'});
+          return {
+            online:navigator.onLine,
+            controlled:!!navigator.serviceWorker.controller,
+            shellStatus:shell.status,
+            shellBytes:(await shell.arrayBuffer()).byteLength,
+            rangeStatus:range.status,
+            rangeLength:(await range.arrayBuffer()).byteLength,
+            contentRange:range.headers.get('content-range'),
+            catalog:window.__afterlightCatalog?.count||0,
+            queue:!!window.__afterlightQueue
+          };
+        });
+        if(offlineRuntime.online||!offlineRuntime.controlled||offlineRuntime.shellStatus!==200||offlineRuntime.shellBytes<1000||offlineRuntime.catalog!==36||!offlineRuntime.queue){
+          throw new Error('cold offline runtime shell failed '+JSON.stringify(offlineRuntime));
+        }
+        if(offlineRuntime.rangeStatus!==206||offlineRuntime.rangeLength!==100||offlineRuntime.contentRange!=='bytes 100-199/1755472'){
+          throw new Error('cold offline cached range playback failed '+JSON.stringify(offlineRuntime));
+        }
+      }finally{
+        await context.setOffline(false);
+        await cdp.send('Network.setCacheDisabled',{cacheDisabled:false});
+      }
     }
 
     if(name==='firefox-desktop'){
