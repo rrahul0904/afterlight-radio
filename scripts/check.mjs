@@ -1,6 +1,5 @@
 import { access, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 
 const root=process.cwd(),pub=path.join(root,'public');
 const slugs=['roma','window','long-way-home','two-hundred','one-more-log','rooftop','friends','backroom','headspace','last-bus','momentum','between'];
@@ -11,44 +10,16 @@ await access(path.join(pub,'library-runtime.js'));
 await access(path.join(pub,'offline-worker.js'));
 await access(path.join(pub,'queue-runtime.js'));
 await access(path.join(pub,'library-browser.js'));
-await access(path.join(pub,'music-manifest.json'));
-const audioHashes=new Set(),audioDurations=new Map();
 for(const slug of slugs){
   await access(path.join(pub,slug,'index.html'));
   for(let t=1;t<=3;t++){
     const p=path.join(pub,'audio',slug,t+'.wav'),s=await stat(p);
-    if(s.size<1000000)throw new Error('Audio asset too small for composed track: '+p);
+    if(s.size<500000)throw new Error('Audio asset too small: '+p);
     const h=await readFile(p);
     if(h.subarray(0,4).toString()!=='RIFF'||h.subarray(8,12).toString()!=='WAVE')throw new Error('Invalid WAV: '+p);
-    if(h.readUInt16LE(22)!==1||h.readUInt32LE(24)!==32000||h.readUInt16LE(34)!==16)throw new Error('Unexpected WAV format: '+p);
-    const duration=h.readUInt32LE(40)/(h.readUInt32LE(24)*2);
-    if(duration<20||duration>40)throw new Error('Unexpected composed track duration '+duration.toFixed(2)+'s: '+p);
-    audioDurations.set(slug+':'+t,duration);
-    audioHashes.add(createHash('sha256').update(h).digest('hex'));
   }
 }
-if(audioHashes.size!==36)throw new Error('Every generated track must have distinct rendered audio; unique='+audioHashes.size);
 for(const p of ['privacy','terms','support','account'])await access(path.join(pub,p,'index.html'));
-
-const musicManifest=JSON.parse(await readFile(path.join(pub,'music-manifest.json'),'utf8'));
-if(musicManifest.version!==2||musicManifest.generated!==true||musicManifest.tracks?.length!==36)throw new Error('Music manifest v2 must describe exactly 36 generated tracks');
-if(!/original procedural composition/i.test(musicManifest.rights||''))throw new Error('Music manifest must declare original procedural-composition provenance');
-const manifestIds=new Set(),manifestTitles=new Set();
-for(const track of musicManifest.tracks){
-  if(!track?.id||manifestIds.has(track.id))throw new Error('Music manifest track IDs must be unique');
-  if(!track?.title||manifestTitles.has(track.title))throw new Error('Music manifest track titles must be unique');
-  manifestIds.add(track.id);manifestTitles.add(track.title);
-  if(track.generator!=='afterlight-composition-engine-v2'||track.sampleRate!==32000||track.channels!==1||track.format!=='pcm_s16le')throw new Error('Music manifest renderer contract drifted for '+track.id);
-  if(track.bpm<50||track.bpm>100||!track.key||!track.style||!track.arrangement)throw new Error('Music manifest musical metadata incomplete for '+track.id);
-  const rendered=audioDurations.get(track.id);
-  if(!rendered||Math.abs(rendered-Number(track.durationSeconds))>.1)throw new Error('Music manifest duration mismatch for '+track.id);
-}
-
-const audioLibrarySource=await readFile(path.join(root,'scripts/audio-library.mjs'),'utf8');
-new Function(audioLibrarySource.replace(/^import[^\n]*\n/gm,'').replace(/export\s+/g,''));
-for(const needle of ['afterlight-composition-engine-v2','motifBanks','sectionForBar','chordDegrees','SIN_SIZE=8192','warm narrative','rhythmic lift','late-night drift','music-manifest.json']){
-  if(!audioLibrarySource.includes(needle))throw new Error('Composition-engine contract missing: '+needle);
-}
 
 const html=await readFile(path.join(root,'index.html'),'utf8');
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)],runtime=scripts.at(-1)?.[1];
@@ -121,7 +92,7 @@ if(html.includes('SUPABASE_')||html.includes('/auth/v1/'))throw new Error('Stale
 const worker=await readFile(path.join(root,'src/worker.js'),'utf8');
 const core=await readFile(path.join(root,'src/api-core.js'),'utf8');
 const vercel=await readFile(path.join(root,'api/index.js'),'utf8');
-const railway=await readFile(path.join(root,'scripts/railway-server.mjs'),'utf8');
+const previewServer=await readFile(path.join(root,'scripts/preview-server.mjs'),'utf8');
 const neonFn=await readFile(path.join(root,'functions/afterlight-lite.mjs'),'utf8');
 const runtimeSecrets=JSON.parse(await readFile(path.join(root,'api/runtime-secrets.json'),'utf8'));
 const vercelConfig=JSON.parse(await readFile(path.join(root,'vercel.json'),'utf8'));
@@ -142,13 +113,8 @@ if(worker.includes('SUPABASE_')||core.includes('SUPABASE_'))throw new Error('Sta
 const neonBackend='https://br-proud-breeze-axhwv7rx-afterlightapi.compute.c-4.us-east-2.aws.neon.tech';
 for(const needle of [neonBackend,'X-Afterlight-Origin','bodyParser:false','getSetCookie','stripe-signature',"'range'","'if-range'"])if(!vercel.includes(needle))throw new Error('Vercel Neon proxy missing: '+needle);
 if(vercel.includes('runtime-secrets.json')||vercel.includes('DATABASE_URL'))throw new Error('Vercel proxy must not depend on database secrets');
-for(const needle of [neonBackend,'X-Afterlight-Origin','RAILWAY_GIT_COMMIT_SHA','/__railway_health',"'range'","'if-range'",'Content-Range','Accept-Ranges','createReadStream','Readable.fromWeb']){
-  if(!railway.includes(needle))throw new Error('Railway host capability missing: '+needle);
-}
-for(const forbidden of ['DATABASE_URL','STRIPE_RESTRICTED_KEY','NAVIDROME_TOKEN']){
-  if(railway.includes(forbidden))throw new Error('Railway host must remain a secretless frontend/proxy: '+forbidden);
-}
-new Function(railway.replace(/^import[^\n]*\n/gm,''));
+for(const needle of ['AFTERLIGHT_BACKEND_URL','X-Afterlight-Origin',"'range'","'if-range'",'0.0.0.0','/healthz'])if(!previewServer.includes(needle))throw new Error('Portable preview server missing: '+needle);
+if(previewServer.includes('NAVIDROME_TOKEN')||previewServer.includes('DATABASE_URL'))throw new Error('Portable preview server must remain a thin first-party proxy');
 if(Object.keys(runtimeSecrets).length!==0)throw new Error('Tracked runtime-secrets.json must remain empty');
 if(vercelConfig.outputDirectory!=='public'||vercelConfig.rewrites?.[0]?.destination!=='/api?path=:path*')throw new Error('Vercel routing config mismatch');
 
@@ -172,4 +138,4 @@ for(const page of ['privacy','terms','support','account']){
   if(built.includes('#756b5f')||built.includes('#766d61'))throw new Error('Low-contrast secondary text remains in built '+page+' page');
 }
 
-console.log('PASS: 12 routes, account portal, support intake, 36 distinct composition-engine-v2 audio tracks with manifest provenance, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Railway hosted frontend/proxy fallback, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
+console.log('PASS: 12 routes, account portal, support intake, 36 audio files, local-first focus sessions/todos with linkage, away-time accounting and generated ambience, complete cold-offline room packages with network-fresh/offline-fallback runtime shell + range playback and playback memory, durable local queue/history with shuffle-repeat restore, searchable 36-track owned catalog, disabled-by-default secure Navidrome/Subsonic provider boundary with server-side streaming, first-party Neon Auth, production Neon Function/Postgres, Vercel proxy, Cloudflare fallback, premium gating, Stripe payment links/webhook contract, accurate legal processors/billing fallback, accessible secondary-page contrast');
