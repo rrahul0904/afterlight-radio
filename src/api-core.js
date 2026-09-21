@@ -8,11 +8,114 @@ const PAYMENT_LINKS={
 };
 
 function json(data,status=200,headers={}){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}})}
-function configured(env){return {auth:!!env.NEON_AUTH_BASE_URL,data:!!env.DATABASE_URL,checkout:!!(PAYMENT_LINKS.monthly&&PAYMENT_LINKS.annual),webhook:!!env.STRIPE_WEBHOOK_SECRET,portal:!!env.STRIPE_RESTRICTED_KEY}}
+function configured(env){return {auth:!!env.NEON_AUTH_BASE_URL,data:!!env.DATABASE_URL,checkout:!!(PAYMENT_LINKS.monthly&&PAYMENT_LINKS.annual),webhook:!!env.STRIPE_WEBHOOK_SECRET,portal:!!env.STRIPE_RESTRICTED_KEY,externalLibrary:providerConfigured(env)}}
 function appOrigin(req){return req.headers.get('X-Afterlight-Origin')||req.headers.get('Origin')||new URL(req.url).origin}
 function originOf(req){return appOrigin(req)}
 async function body(req){try{return await req.json()}catch{return {}}}
 function db(env){if(!env.DATABASE_URL)throw new Error('Database is not configured');return neon(env.DATABASE_URL)}
+
+function providerConfigured(env){
+  return !!(env.NAVIDROME_BASE_URL&&env.NAVIDROME_USERNAME&&env.NAVIDROME_TOKEN&&env.NAVIDROME_SALT);
+}
+function safeProviderBase(env){
+  if(!providerConfigured(env))throw new Error('External music library is not configured');
+  const url=new URL(env.NAVIDROME_BASE_URL);
+  if(url.protocol!=='https:')throw new Error('External music library must use HTTPS');
+  const host=url.hostname.toLowerCase();
+  if(host==='localhost'||host.endsWith('.localhost')||host==='127.0.0.1'||host==='::1'||host.startsWith('10.')||host.startsWith('192.168.')||/^172\.(1[6-9]|2\d|3[01])\./.test(host)||host.endsWith('.local')){
+    throw new Error('External music library host is not allowed');
+  }
+  url.pathname=url.pathname.replace(/\/$/,'');
+  return url;
+}
+function providerParams(env){
+  return {
+    u:String(env.NAVIDROME_USERNAME),
+    t:String(env.NAVIDROME_TOKEN),
+    s:String(env.NAVIDROME_SALT),
+    v:'1.16.1',
+    c:String(env.NAVIDROME_CLIENT_NAME||'afterlight-radio').slice(0,64),
+    f:'json'
+  };
+}
+function providerUrl(env,endpoint,params={}){
+  const base=safeProviderBase(env);
+  const url=new URL(base.toString());
+  url.pathname=base.pathname+'/rest/'+endpoint+'.view';
+  const all={...providerParams(env),...params};
+  for(const [key,value] of Object.entries(all))if(value!==undefined&&value!==null)url.searchParams.set(key,String(value));
+  return url;
+}
+async function providerJson(env,endpoint,params={}){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),7000);
+  try{
+    const response=await fetch(providerUrl(env,endpoint,params),{headers:{Accept:'application/json'},redirect:'error',signal:controller.signal});
+    const data=await response.json().catch(()=>null);
+    if(!response.ok)throw new Error('External library request failed');
+    const root=data?.['subsonic-response'];
+    if(!root||root.status!=='ok')throw new Error(root?.error?.message||'External library returned an error');
+    return root;
+  }finally{clearTimeout(timer)}
+}
+function normalizedProviderTrack(song){
+  if(!song?.id)return null;
+  return {
+    id:'navidrome:'+String(song.id),
+    title:String(song.title||'Untitled').slice(0,300),
+    artist:String(song.artist||'').slice(0,300),
+    album:String(song.album||'').slice(0,300),
+    duration:Number.isFinite(Number(song.duration))?Number(song.duration):0,
+    artwork:song.coverArt?'/api/library/provider/artwork?id='+encodeURIComponent(String(song.coverArt)):'',
+    streamUrl:'/api/library/provider/stream?id='+encodeURIComponent(String(song.id)),
+    provider:'navidrome',
+    providerTrackId:String(song.id)
+  };
+}
+async function providerStatus(req,env){
+  const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
+  if(!providerConfigured(env))return json({enabled:false,provider:'navidrome'},200);
+  try{
+    const ping=await providerJson(env,'ping');
+    return json({enabled:true,provider:'navidrome',reachable:ping.status==='ok'});
+  }catch{return json({enabled:true,provider:'navidrome',reachable:false},200)}
+}
+async function providerSearch(req,env,url){
+  const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
+  if(!providerConfigured(env))return json({error:'External music library is not configured'},503);
+  const q=String(url.searchParams.get('q')||'').trim().slice(0,120);
+  if(q.length<2)return json({error:'Search query must be at least 2 characters'},400);
+  try{
+    const root=await providerJson(env,'search3',{query:q,songCount:50,albumCount:0,artistCount:0});
+    const songs=Array.isArray(root.searchResult3?.song)?root.searchResult3.song:[];
+    const tracks=songs.map(normalizedProviderTrack).filter(Boolean);
+    return json({provider:'navidrome',query:q,tracks});
+  }catch(error){return json({error:error?.name==='AbortError'?'External music library timed out':'External music library request failed'},502)}
+}
+async function providerBinary(req,env,url,kind){
+  const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
+  if(!providerConfigured(env))return json({error:'External music library is not configured'},503);
+  const id=String(url.searchParams.get('id')||'').trim();
+  if(!id||id.length>200||!/^[A-Za-z0-9._:-]+$/.test(id))return json({error:'Invalid media id'},400);
+  const endpoint=kind==='artwork'?'getCoverArt':'stream';
+  const headers=new Headers();
+  if(kind==='stream'){
+    const range=req.headers.get('Range');if(range)headers.set('Range',range);
+  }
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),12000);
+  try{
+    const upstream=await fetch(providerUrl(env,endpoint,{id}),{headers,redirect:'error',signal:controller.signal});
+    if(!upstream.ok&&upstream.status!==206)return json({error:'External media request failed'},502);
+    const out=new Headers({'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});
+    for(const key of ['content-type','content-range','accept-ranges','content-length','etag','last-modified']){
+      const value=upstream.headers.get(key);if(value)out.set(key,value);
+    }
+    return new Response(req.method==='HEAD'?null:upstream.body,{status:upstream.status,statusText:upstream.statusText,headers:out});
+  }catch(error){
+    return json({error:error?.name==='AbortError'?'External media request timed out':'External media request failed'},502);
+  }finally{clearTimeout(timer)}
+}
 
 function authHeaders(req,includeContent=false){
   const headers=new Headers({Accept:req.headers.get('Accept')||'application/json'});
@@ -85,7 +188,7 @@ async function portal(req,env){
 }
 async function events(req,env){
   if(!env.DATABASE_URL)return json({accepted:true},202);
-  const auth=await authSession(req,env),x=await body(req),allowed=new Set(['page_view','play','pause','favorite','timer_set','upgrade_view','checkout_started','checkout_return','sign_in','sign_up','client_error']),event=allowed.has(x.event)?x.event:'unknown',sql=db(env);
+  const auth=await authSession(req,env),x=await body(req),allowed=new Set(['page_view','play','pause','favorite','timer_set','upgrade_view','checkout_started','checkout_return','sign_in','sign_up','client_error','offline_room_saved','offline_room_removed','queue_repeat_one','queue_finished','queue_shuffle_changed','queue_repeat_changed','library_opened','library_track_selected']),event=allowed.has(x.event)?x.event:'unknown',sql=db(env);
   await sql`insert into analytics_events (user_id,session_id,event_name,room_slug,properties,created_at) values (${auth?.user?.id||null}::uuid,${String(x.session_id||'').slice(0,128)||null},${event},${x.room_slug?String(x.room_slug).slice(0,64):null},${JSON.stringify(typeof x.properties==='object'&&x.properties?x.properties:{})}::jsonb,now())`;
   return json({accepted:true},202);
 }
@@ -130,12 +233,16 @@ async function api(req,env,url){
   if(url.pathname.startsWith('/api/auth/'))return authProxy(req,env,url);
   if(url.pathname==='/api/health')return json({ok:true,configured:configured(env),backend:'neon'});
   if(url.pathname==='/api/ready'){const c=configured(env);let database=false;if(c.data)try{const sql=db(env);const rows=await sql`select 1 as ok`;database=rows?.[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout&&c.webhook,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon'})}
-  if(url.pathname==='/api/config'){const c=configured(env);return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEnabled:c.data})}
+  if(url.pathname==='/api/config'){const c=configured(env);return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEnabled:c.data,externalLibraryEnabled:c.externalLibrary})}
   if(url.pathname==='/api/me'&&req.method==='GET')return me(req,env);
   if(url.pathname==='/api/preferences'&&(req.method==='GET'||req.method==='PUT'))return preferences(req,env);
   if(url.pathname==='/api/checkout'&&req.method==='POST')return checkout(req,env);
   if(url.pathname==='/api/portal'&&req.method==='POST')return portal(req,env);
   if(url.pathname==='/api/events'&&req.method==='POST')return events(req,env);
+  if(url.pathname==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req,env);
+  if(url.pathname==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,env,url);
+  if(url.pathname==='/api/library/provider/stream'&&(req.method==='GET'||req.method==='HEAD'))return providerBinary(req,env,url,'stream');
+  if(url.pathname==='/api/library/provider/artwork'&&(req.method==='GET'||req.method==='HEAD'))return providerBinary(req,env,url,'artwork');
   if(url.pathname==='/api/support'&&req.method==='POST')return support(req,env);
   if(url.pathname==='/api/stripe/webhook'&&req.method==='POST')return webhook(req,env);
   return json({error:'Not found'},404);

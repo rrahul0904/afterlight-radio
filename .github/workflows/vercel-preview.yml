@@ -77,7 +77,7 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Preview deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify hosted exact revision and focus runtime
+      - name: Verify hosted exact revision and product runtimes
         shell: bash
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
@@ -86,11 +86,27 @@ jobs:
           LIVE_SHA="$(curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/release.txt" | tr -d '\r\n')"
           test "$LIVE_SHA" = "$AFTERLIGHT_RELEASE_SHA"
           curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/rooftop/" -o /tmp/rooftop.html
-          grep -q '/focus-room.js' /tmp/rooftop.html
-          curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/focus-room.js" -o /tmp/focus-room.js
+          for asset in focus-room.js library-runtime.js offline-worker.js queue-runtime.js library-browser.js; do
+            grep -q "/$asset" /tmp/rooftop.html || [ "$asset" = "offline-worker.js" ]
+            curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/$asset" -o "/tmp/$asset"
+          done
           grep -q 'afterlight-radio:focus-room:v1' /tmp/focus-room.js
           grep -q 'data-todo-use' /tmp/focus-room.js
+          grep -q 'offlinePackageUrls' /tmp/library-runtime.js
+          grep -q 'afterlight-offline-v1' /tmp/offline-worker.js
+          grep -q 'afterlight-radio:queue:v1' /tmp/queue-runtime.js
+          grep -q 'window.__afterlightCatalog' /tmp/library-browser.js
           curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/audio/rooftop/1.wav" -o /tmp/rooftop.wav
           test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
           test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
-          echo "Hosted preview matches exact PR head $AFTERLIGHT_RELEASE_SHA and serves Focus Mode/Todo runtime." >> "$GITHUB_STEP_SUMMARY"
+          echo "Hosted preview matches exact PR head $AFTERLIGHT_RELEASE_SHA and serves Focus, offline, queue, and library runtimes." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install Chromium for hosted offline certification
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify hosted cold-offline playback and resume
+        env:
+          BASE_URL: ${{ steps.deploy.outputs.url }}
+        run: node scripts/hosted-offline-smoke.mjs

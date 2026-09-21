@@ -16,6 +16,7 @@ Afterlight is a premium consumer listening product: twelve illustrated places wi
 - Stripe-hosted monthly and annual checkout links
 - verified Stripe webhooks drive premium entitlements and cancellation state
 - first-party analytics, client-error capture and persisted support requests
+- optional disabled-by-default server-side Navidrome/Subsonic library adapter
 - Privacy, Terms, Support and Account portal surfaces
 - GitHub Actions CI, production verification, account lifecycle and browser-matrix checks
 
