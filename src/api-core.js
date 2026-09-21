@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import {handleOpenStreamApi,isOpenStreamPath,openStreamConfigured} from './openstream-provider.js';
 
 const STRIPE_VERSION='2026-07-29.dahlia';
 const ACTIVE=new Set(['active','trialing','past_due']);
@@ -8,7 +9,7 @@ const PAYMENT_LINKS={
 };
 
 function json(data,status=200,headers={}){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}})}
-function configured(env){return {auth:!!env.NEON_AUTH_BASE_URL,data:!!env.DATABASE_URL,checkout:!!(PAYMENT_LINKS.monthly&&PAYMENT_LINKS.annual),webhook:!!env.STRIPE_WEBHOOK_SECRET,portal:!!env.STRIPE_RESTRICTED_KEY}}
+function configured(env){return {auth:!!env.NEON_AUTH_BASE_URL,data:!!env.DATABASE_URL,checkout:!!(PAYMENT_LINKS.monthly&&PAYMENT_LINKS.annual),webhook:!!env.STRIPE_WEBHOOK_SECRET,portal:!!env.STRIPE_RESTRICTED_KEY,openstream:openStreamConfigured(env)}}
 function appOrigin(req){return req.headers.get('X-Afterlight-Origin')||req.headers.get('Origin')||new URL(req.url).origin}
 function originOf(req){return appOrigin(req)}
 async function body(req){try{return await req.json()}catch{return {}}}
@@ -128,6 +129,7 @@ async function support(req,env){
 }
 async function api(req,env,url){
   if(url.pathname.startsWith('/api/auth/'))return authProxy(req,env,url);
+  if(isOpenStreamPath(url.pathname)){const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);return handleOpenStreamApi(req,env);}
   if(url.pathname==='/api/health')return json({ok:true,configured:configured(env),backend:'neon'});
   if(url.pathname==='/api/ready'){const c=configured(env);let database=false;if(c.data)try{const sql=db(env);const rows=await sql`select 1 as ok`;database=rows?.[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout&&c.webhook,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon'})}
   if(url.pathname==='/api/config'){const c=configured(env);return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEnabled:c.data})}
