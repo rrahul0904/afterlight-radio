@@ -41,7 +41,8 @@ function providerParams(env){
 function providerUrl(env,endpoint,params={}){
   const base=safeProviderBase(env);
   const url=new URL(base.toString());
-  url.pathname=base.pathname+'/rest/'+endpoint+'.view';
+  const prefix=base.pathname==='/'?'':base.pathname.replace(/\/$/,'');
+  url.pathname=prefix+'/rest/'+endpoint+'.view';
   const all={...providerParams(env),...params};
   for(const [key,value] of Object.entries(all))if(value!==undefined&&value!==null)url.searchParams.set(key,String(value));
   return url;
