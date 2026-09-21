@@ -14,7 +14,7 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 
 | JellyBox capability | Afterlight mapping | Status in this branch |
 | --- | --- | --- |
-| Full offline mode + downloads | Explicit per-room offline save with cached route + all three WAV tracks | Implemented |
+| Full offline mode + downloads | Explicit per-room offline save with cached route, shared runtime shell, and all three WAV tracks | Implemented |
 | Playback memory | Persist and restore position for the same track | Implemented |
 | Progressive media caching | Cache Storage + service worker media path | Implemented, explicit-save first |
 | Range-aware playback | Serve byte ranges from cached WAV responses | Implemented |
@@ -39,7 +39,7 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 `scripts/library-runtime.js`
 - registers the offline service worker
 - adds a per-room **Save offline** / **Offline** control
-- saves and removes the room route plus its three audio tracks
+- saves the room route, shared runtime shell, and its three audio tracks; removing one room preserves the shared shell for other saved rooms
 - persists playback position locally and restores it for the matching track
 - exposes `window.__afterlightLibrary` with a versioned provider contract
 
@@ -56,7 +56,8 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 
 `scripts/offline-worker.js`
 - accepts bounded same-origin cache/remove commands
-- caches full room WAV files
+- caches full room WAV files plus the shared JavaScript shell required for a true cold offline start
+- serves cached runtime assets before network when available
 - serves cached WAV byte ranges with HTTP 206 semantics
 - falls back to cached room HTML when navigation is offline
 
@@ -65,6 +66,6 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 1. Server-side provider interface and one adapter behind explicit configuration; Navidrome/Subsonic is the smallest protocol surface.
 2. External-library browse UI only after the provider boundary is safely enabled.
 3. Lyrics support only when Afterlight has owned vocal/lyric content to display.
-4. Hosted browser verification: save room, force offline, cold-load saved route, seek within a cached WAV, resume playback position.
+4. Hosted browser verification: save room, force offline, cold-load saved route with browser cache disabled, load the cached runtime shell, seek within a cached WAV, and resume playback position.
 
 No production-readiness claim should be made until the hosted offline/cold-start and range-seek evidence is collected on the exact deployed commit.
