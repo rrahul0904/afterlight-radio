@@ -231,7 +231,6 @@
     readPlaybackMemory:readMemory
   };
 
-  registration().catch(()=>{});
   installButton();
   bindPlaybackMemory();
   observeRoomChanges();
