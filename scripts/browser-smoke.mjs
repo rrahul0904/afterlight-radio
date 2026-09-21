@@ -157,6 +157,28 @@ for(const [name,type,contextOptions] of targets){
       throw new Error('Play control did not enter playing state: '+JSON.stringify(await playbackState(page)));
     }
 
+    await page.locator('#queueBtn').click();
+    await page.locator('#queueDialog').waitFor({state:'visible',timeout:5000});
+    await page.locator('#queueShuffle').click();
+    await page.locator('#queueRepeat').click();
+    const queueState=await page.evaluate(()=>window.__afterlightQueue?.getState());
+    if(!queueState?.shuffle||queueState.repeat!=='one'||!queueState.history?.length)throw new Error('queue state/history did not persist locally '+JSON.stringify(queueState));
+    await page.locator('#queueClose').click();
+
+    if(name==='chromium-desktop'){
+      await page.locator('#offlineRoom').click();
+      await page.waitForFunction(()=>document.querySelector('#offlineRoom')?.getAttribute('aria-pressed')==='true',{timeout:20000});
+      const saved=await page.evaluate(()=>window.__afterlightLibrary?.isRoomOffline());
+      if(!saved)throw new Error('room did not report offline after explicit save');
+      await page.reload({waitUntil:'domcontentloaded'});
+      await page.waitForFunction(()=>!!navigator.serviceWorker.controller,{timeout:8000});
+      const range=await page.evaluate(async()=>{
+        const r=await fetch('/audio/rooftop/1.wav',{headers:{Range:'bytes=100-199'}});
+        return {status:r.status,length:(await r.arrayBuffer()).byteLength,range:r.headers.get('content-range')};
+      });
+      if(range.status!==206||range.length!==100||range.range!=='bytes 100-199/1755472')throw new Error('cached range playback failed '+JSON.stringify(range));
+    }
+
     if(name==='firefox-desktop'){
       await page.waitForTimeout(12000);
       const sustained=await playbackState(page);
@@ -181,7 +203,7 @@ for(const [name,type,contextOptions] of targets){
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({url:base+'/account/?oauth=google-test'})});
     });
     await page.locator('#googleAuthAccount').click();
-    await page.waitForURL('**/account/?oauth=google-test',{timeout:8000});
+    await page.waitForURL('**/account/?oauth=google-test',{timeout:8000,waitUntil:'domcontentloaded'});
     if(oauthPayload?.provider!=='google'||oauthPayload?.callbackURL!=='/account/')throw new Error('Google OAuth initiation payload mismatch '+JSON.stringify(oauthPayload));
 
     if(errors.length)throw new Error(errors.join(' | '));
