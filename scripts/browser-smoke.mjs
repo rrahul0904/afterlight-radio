@@ -148,8 +148,12 @@ for(const [name,type,contextOptions] of targets){
     r=await page.goto(base+'/rooftop/',{waitUntil:'domcontentloaded',timeout:20000});
     if(!r?.ok())throw new Error('rooftop return status '+r?.status());
     await page.locator('#play').waitFor({state:'visible',timeout:8000});
-    const wav=await page.evaluate(async()=>{const r=await fetch('/audio/rooftop/1.wav',{method:'GET'});return {status:r.status,type:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength}});
+    const wav=await page.evaluate(async()=>{
+      const [r,m]=await Promise.all([fetch('/audio/rooftop/1.wav',{method:'GET'}),fetch('/music-manifest.json',{cache:'no-store'})]);
+      return {status:r.status,type:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength,manifest:await m.json()};
+    });
     if(![200,206].includes(wav.status)||!/^audio\//i.test(wav.type||'')||wav.bytes<1000000)throw new Error('WAV failed '+JSON.stringify(wav));
+    if(wav.manifest?.version!==2||wav.manifest?.tracks?.length!==36||wav.manifest.tracks.find(x=>x.id==='rooftop:1')?.generator!=='afterlight-composition-engine-v2')throw new Error('music manifest v2 missing on built runtime');
     const support=await page.evaluate(()=>audio.canPlayType('audio/wav'));
     if(!support)throw new Error('browser reports no WAV support');
     await page.locator('#play').click({timeout:8000});
@@ -220,7 +224,7 @@ for(const [name,type,contextOptions] of targets){
         if(!offlineRuntime.networkProbeFailed||!offlineRuntime.controlled||offlineRuntime.shellStatus!==200||offlineRuntime.shellBytes<1000||offlineRuntime.catalog!==36||!offlineRuntime.queue){
           throw new Error('cold offline runtime shell failed '+JSON.stringify(offlineRuntime));
         }
-        if(offlineRuntime.rangeStatus!==206||offlineRuntime.rangeLength!==100||offlineRuntime.contentRange!=='bytes 100-199/1755472'){
+        if(offlineRuntime.rangeStatus!==206||offlineRuntime.rangeLength!==100||!/^bytes 100-199\/\d+$/.test(offlineRuntime.contentRange||'')){
           throw new Error('cold offline cached range playback failed '+JSON.stringify(offlineRuntime));
         }
       }finally{
