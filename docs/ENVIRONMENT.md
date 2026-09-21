@@ -25,6 +25,7 @@ The Neon Function owns privileged backend work:
 - Stripe webhook verification
 - premium entitlement synchronization
 - optional external music-library search and streaming proxy
+- admin-only user/subscription/activity/support reporting
 
 Vercel serves the product UI and proxies `/api/*` to the Neon Function so Auth cookies remain first-party on the Afterlight domain.
 
@@ -57,9 +58,22 @@ Support does **not** depend on an email environment variable. `/support/` submit
 
 Vercel remains the canonical production hostname, but `.github/workflows/deploy-cloudflare.yml` now provides a second hosted release path. It runs on relevant pushes to `main` and can also be invoked manually.
 
-The mirror is fail-closed: it requires repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, runs the full test suite, stamps `public/release.txt` with the exact Git SHA, verifies the v2 36-track music manifest, and only then deploys with Wrangler.
+The mirror is fail-closed: it requires repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, runs the full test suite, stamps `public/release.txt` with the exact Git SHA, verifies the v3 36-track stereo music manifest, and only then deploys with Wrangler.
 
 This mirror is useful for exact-revision launch verification when Vercel Git auto-deploy or the repository `VERCEL_TOKEN` path is unavailable. It does not change the canonical Vercel domain or the Neon production backend contract.
+
+## Admin portal
+
+The private operator console is served at `/admin/`. It reads from the canonical Neon Auth directory and joins application data from `profiles`, `subscriptions`, `user_preferences`, `analytics_events`, and `support_requests`.
+
+Admin authorization is server-side only. A signed-in user is accepted when either:
+
+- the Neon Auth user `role` contains `admin`, or
+- the user's email is listed in the server-side `AFTERLIGHT_ADMIN_EMAILS` environment variable (comma-separated).
+
+Do not expose `AFTERLIGHT_ADMIN_EMAILS` to browser code. The first portal slice is read-only: it lists/searches users and operational signals but does not delete, ban, or mutate accounts.
+
+At the time this portal was implemented, production Neon Auth contained **0 registered users**; anonymous analytics events were present. The directory will populate automatically as real accounts are created.
 
 ## Optional external music library
 
