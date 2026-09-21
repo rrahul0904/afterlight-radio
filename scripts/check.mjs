@@ -35,7 +35,7 @@ for(const forbidden of ['/api/preferences','task_label:','task_text:','todo_titl
   if(focusRoom.includes(forbidden))throw new Error('Focus-room privacy boundary drifted: '+forbidden);
 }
 const builtIndex=await readFile(path.join(pub,'index.html'),'utf8');
-if(!builtIndex.includes('/focus-room.js'))throw new Error('Focus-room runtime not injected into built room routes');
+if(!builtIndex.includes('/focus-room.js?v=offline2'))throw new Error('Versioned focus-room runtime not injected into built room routes');
 
 const libraryRuntime=await readFile(path.join(root,'scripts/library-runtime.js'),'utf8');
 const offlineWorker=await readFile(path.join(root,'scripts/offline-worker.js'),'utf8');
@@ -50,7 +50,7 @@ for(const needle of ['CACHE_URLS','REMOVE_URLS','Only same-origin media can be c
 for(const forbidden of ['password','accessToken','apiKey','Authorization:']){
   if(libraryRuntime.includes(forbidden)||offlineWorker.includes(forbidden))throw new Error('Offline-library credential boundary drifted: '+forbidden);
 }
-if(!builtIndex.includes('/library-runtime.js'))throw new Error('Offline-library runtime not injected into built room routes');
+if(!builtIndex.includes('/library-runtime.js?v=offline2'))throw new Error('Versioned offline-library runtime not injected into built room routes');
 if(libraryRuntime.includes('registration().catch'))throw new Error('Offline worker must not register before explicit offline intent');
 if(!libraryRuntime.includes("await send('REMOVE_URLS',{urls:roomUrls(slug)})"))throw new Error('Removing one room must preserve shared offline shell assets');
 
@@ -62,7 +62,7 @@ for(const needle of ['afterlight-radio:queue:v1','HISTORY_LIMIT=40','determinist
 for(const forbidden of ['/api/preferences','fetch(','credentials:']){
   if(queueRuntime.includes(forbidden))throw new Error('Queue local-first boundary drifted: '+forbidden);
 }
-if(!builtIndex.includes('/queue-runtime.js'))throw new Error('Queue runtime not injected into built room routes');
+if(!builtIndex.includes('/queue-runtime.js?v=offline2'))throw new Error('Versioned queue runtime not injected into built room routes');
 
 const libraryBrowser=await readFile(path.join(root,'scripts/library-browser.js'),'utf8');
 new Function(libraryBrowser);
@@ -72,7 +72,7 @@ for(const needle of ['Owned Afterlight catalog','Music library','Search tracks, 
 for(const forbidden of ['fetch(','innerHTML=entry.title','innerHTML=entry.roomName']){
   if(libraryBrowser.includes(forbidden))throw new Error('Library browser safety/local boundary drifted: '+forbidden);
 }
-if(!builtIndex.includes('/library-browser.js'))throw new Error('Library browser not injected into built room routes');
+if(!builtIndex.includes('/library-browser.js?v=offline2'))throw new Error('Versioned library browser not injected into built room routes');
 
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const wrangler=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
