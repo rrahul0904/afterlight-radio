@@ -51,6 +51,8 @@ try{
     await page.locator('#queueBtn').waitFor({state:'visible',timeout:8000});
 
     const state=await page.evaluate(async()=>{
+      let networkProbeFailed=false;
+      try{await fetch('/__offline_probe__?t='+Date.now(),{cache:'no-store'})}catch{networkProbeFailed=true}
       const shell=await fetch('/library-browser.js?v=offline2',{cache:'reload'});
       const range=await fetch('/audio/rooftop/1.wav',{headers:{Range:'bytes=100-199'},cache:'reload'});
       await new Promise(resolve=>{
@@ -60,7 +62,7 @@ try{
         setTimeout(done,5000);
       });
       return {
-        online:navigator.onLine,
+        networkProbeFailed,
         controlled:!!navigator.serviceWorker.controller,
         shellStatus:shell.status,
         shellBytes:(await shell.arrayBuffer()).byteLength,
@@ -74,7 +76,7 @@ try{
       };
     });
 
-    if(state.online||!state.controlled||state.shellStatus!==200||state.shellBytes<1000||state.catalog!==36||!state.queue){
+    if(!state.networkProbeFailed||!state.controlled||state.shellStatus!==200||state.shellBytes<1000||state.catalog!==36||!state.queue){
       throw new Error('hosted cold-offline shell failed '+JSON.stringify(state));
     }
     if(state.rangeStatus!==206||state.rangeLength!==100||!/bytes 100-199\//.test(state.contentRange||'')){
