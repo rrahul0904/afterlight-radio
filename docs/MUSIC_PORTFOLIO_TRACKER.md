@@ -44,7 +44,23 @@ Implemented in current `main`:
 - Media Session/system control integration.
 - authenticated, server-side Navidrome/Subsonic provider boundary.
 - provider search, stream, artwork and Range forwarding.
+- Music Lab long-form candidate rendering, blind audition packages and human review/promotion policy.
 - credentials kept server-side with HTTPS/private-host guardrails.
+
+## Catalog-quality workstream
+
+Current production audio remains the deterministic v3 36-track baseline. The Music Lab workstream exists because technical QC does not establish musical quality.
+
+The target process is:
+
+1. generate several longer candidates for a room;
+2. automatically reject broken/clipping/collapsed-stereo candidates;
+3. blind-listen and score room fit, musicality, fatigue, variation and polish;
+4. reject/rework/shortlist;
+5. require stronger multi-reviewer thresholds before public-production promotion;
+6. keep the released catalog immutable until a reviewed master is deliberately promoted.
+
+The Music Lab is not a user-facing song generator and does not collapse the Open Music Studio boundary.
 
 ## Remaining reverse-engineering gaps
 
