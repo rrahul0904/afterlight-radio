@@ -58,19 +58,53 @@ async function providerJson(env,endpoint,params={}){
     return root;
   }finally{clearTimeout(timer)}
 }
+function validProviderId(value){
+  const id=String(value||'').trim();
+  return id&&id.length<=200&&/^[A-Za-z0-9._:-]+$/.test(id)?id:'';
+}
 function normalizedProviderTrack(song){
   if(!song?.id)return null;
+  const providerTrackId=String(song.id);
   return {
-    id:'navidrome:'+String(song.id),
+    id:'navidrome:'+providerTrackId,
     title:String(song.title||'Untitled').slice(0,300),
     artist:String(song.artist||'').slice(0,300),
     album:String(song.album||'').slice(0,300),
     duration:Number.isFinite(Number(song.duration))?Number(song.duration):0,
     artwork:song.coverArt?'/api/library/provider/artwork?id='+encodeURIComponent(String(song.coverArt)):'',
-    streamUrl:'/api/library/provider/stream?id='+encodeURIComponent(String(song.id)),
+    streamUrl:'/api/library/provider/stream?id='+encodeURIComponent(providerTrackId),
+    lyricsUrl:'/api/library/provider/lyrics?id='+encodeURIComponent(providerTrackId),
     provider:'navidrome',
-    providerTrackId:String(song.id)
+    providerTrackId
   };
+}
+function normalizedProviderLyrics(root,providerTrackId){
+  const source=Array.isArray(root?.lyricsList?.structuredLyrics)?root.lyricsList.structuredLyrics:[];
+  const tracks=[];
+  let remainingLines=4000;
+  for(const entry of source.slice(0,8)){
+    if(remainingLines<=0)break;
+    const rawLines=Array.isArray(entry?.line)?entry.line:[];
+    const lines=[];
+    for(const line of rawLines.slice(0,remainingLines)){
+      const text=String(line?.value??'').slice(0,2000);
+      const start=Number(line?.start);
+      if(!text&&!Number.isFinite(start))continue;
+      lines.push({startMs:Number.isFinite(start)&&start>=0?Math.round(start):null,text});
+    }
+    remainingLines-=lines.length;
+    const offset=Number(entry?.offset);
+    const rawLang=String(entry?.lang||'und').trim().slice(0,32);
+    tracks.push({
+      lang:rawLang==='xxx'?'und':rawLang||'und',
+      synced:!!entry?.synced,
+      offsetMs:Number.isFinite(offset)?Math.max(-600000,Math.min(600000,Math.round(offset))):0,
+      displayArtist:String(entry?.displayArtist||'').slice(0,300),
+      displayTitle:String(entry?.displayTitle||'').slice(0,300),
+      lines
+    });
+  }
+  return {provider:'navidrome',providerTrackId,tracks,available:tracks.some(track=>track.lines.length>0)};
 }
 async function providerStatus(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
@@ -92,11 +126,23 @@ async function providerSearch(req,env,url){
     return json({provider:'navidrome',query:q,tracks});
   }catch(error){return json({error:error?.name==='AbortError'?'External music library timed out':'External music library request failed'},502)}
 }
+async function providerLyrics(req,env,url){
+  const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
+  if(!providerConfigured(env))return json({error:'External music library is not configured'},503);
+  const id=validProviderId(url.searchParams.get('id'));
+  if(!id)return json({error:'Invalid media id'},400);
+  try{
+    const root=await providerJson(env,'getLyricsBySongId',{id});
+    return json(normalizedProviderLyrics(root,id));
+  }catch(error){
+    return json({error:error?.name==='AbortError'?'External lyrics request timed out':'External lyrics request failed'},502);
+  }
+}
 async function providerBinary(req,env,url,kind){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
   if(!providerConfigured(env))return json({error:'External music library is not configured'},503);
-  const id=String(url.searchParams.get('id')||'').trim();
-  if(!id||id.length>200||!/^[A-Za-z0-9._:-]+$/.test(id))return json({error:'Invalid media id'},400);
+  const id=validProviderId(url.searchParams.get('id'));
+  if(!id)return json({error:'Invalid media id'},400);
   const endpoint=kind==='artwork'?'getCoverArt':'stream';
   const headers=new Headers();
   if(kind==='stream'){
@@ -241,6 +287,7 @@ async function api(req,env,url){
   if(url.pathname==='/api/events'&&req.method==='POST')return events(req,env);
   if(url.pathname==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req,env);
   if(url.pathname==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,env,url);
+  if(url.pathname==='/api/library/provider/lyrics'&&req.method==='GET')return providerLyrics(req,env,url);
   if(url.pathname==='/api/library/provider/stream'&&(req.method==='GET'||req.method==='HEAD'))return providerBinary(req,env,url,'stream');
   if(url.pathname==='/api/library/provider/artwork'&&(req.method==='GET'||req.method==='HEAD'))return providerBinary(req,env,url,'artwork');
   if(url.pathname==='/api/support'&&req.method==='POST')return support(req,env);
