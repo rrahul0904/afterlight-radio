@@ -20,7 +20,8 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 | Range-aware playback | Serve byte ranges from cached WAV responses | Implemented |
 | Queue / playlist management | Durable per-device queue state, recent listening history, deterministic shuffle, repeat-one/all/off, and room-track selection | Implemented |
 | Jellyfin / Emby / Navidrome servers | Provider adapter boundary with normalized track shape | Contract only |
-| Synced lyrics | Optional lyric layer for owned/generated tracks | Planned |
+| Library browse / search | Searchable first-party surface over all 36 owned Afterlight tracks, rooms, and moods | Implemented |
+| Synced lyrics | Optional lyric layer for owned/generated vocal tracks; current catalog is instrumental | Deferred until content exists |
 | Artwork-driven theming | Existing Afterlight room palettes and illustrated scenes already cover this product need | Existing |
 | Media keys / system controls | Existing Media Session integration | Existing |
 | AirPlay / DLNA / car surfaces | Native/cast adapters after core web library contract is stable | Later |
@@ -47,6 +48,12 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 - preserves the existing three-track room product while making navigation explicit and inspectable
 - exposes `window.__afterlightQueue` for deterministic browser verification
 
+`scripts/library-browser.js`
+- indexes the existing 12 rooms × 3 owned tracks into a 36-track first-party catalog
+- searches track titles, places, mood, and room story without an external service
+- selects exact room/track while preserving premium gating
+- exposes `window.__afterlightCatalog` for deterministic browser verification
+
 `scripts/offline-worker.js`
 - accepts bounded same-origin cache/remove commands
 - caches full room WAV files
@@ -55,9 +62,9 @@ JellyBox is AGPL-3.0. This branch does **not** copy JellyBox source, UI, assets,
 
 ## Next bounded slices
 
-1. Lyrics model for generated/owned tracks.
-2. Server-side provider interface and one adapter behind explicit configuration; Navidrome/Subsonic is the smallest protocol surface.
-3. Library search and browse UI separated from the twelve curated Afterlight rooms.
+1. Server-side provider interface and one adapter behind explicit configuration; Navidrome/Subsonic is the smallest protocol surface.
+2. External-library browse UI only after the provider boundary is safely enabled.
+3. Lyrics support only when Afterlight has owned vocal/lyric content to display.
 4. Hosted browser verification: save room, force offline, cold-load saved route, seek within a cached WAV, resume playback position.
 
 No production-readiness claim should be made until the hosted offline/cold-start and range-seek evidence is collected on the exact deployed commit.
