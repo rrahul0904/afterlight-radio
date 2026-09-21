@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "principle": "Technical audio validity is necessary but never sufficient for production approval.",
+  "beta": {
+    "minimumReviewers": 1,
+    "minimumListenedSeconds": 60,
+    "minimumScores": {
+      "roomFit": 4,
+      "musicality": 3.5,
+      "fatigueResistance": 3.5,
+      "variation": 3,
+      "productionPolish": 3.5
+    },
+    "minimumShortlistVotes": 1
+  },
+  "production": {
+    "minimumReviewers": 2,
+    "minimumListenedSeconds": 90,
+    "minimumScores": {
+      "roomFit": 4,
+      "musicality": 4,
+      "fatigueResistance": 4,
+      "variation": 3.5,
+      "productionPolish": 4
+    },
+    "minimumShortlistVotes": 2
+  },
+  "automaticReject": [
+    "candidate technicalPass is false",
+    "any reviewer decision is reject",
+    "review coverage is below the selected stage minimum",
+    "rights or provenance are not first-party/cleared"
+  ],
+  "launchListeningQuestion": "Would I voluntarily keep this room playing for 30 minutes?"
+}
