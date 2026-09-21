@@ -96,10 +96,14 @@ self.addEventListener('fetch',event=>{
   }
 
   event.respondWith((async()=>{
-    const cache=await caches.open(CACHE_NAME);
-    const key=new Request(url.href,{method:'GET',credentials:'same-origin'});
-    const cached=await cache.match(key,{ignoreSearch:false});
-    if(cached)return cached;
-    return fetch(request);
+    try{
+      return await fetch(request);
+    }catch{
+      const cache=await caches.open(CACHE_NAME);
+      const key=new Request(url.href,{method:'GET',credentials:'same-origin'});
+      const cached=await cache.match(key,{ignoreSearch:false});
+      if(cached)return cached;
+      throw new Error('Offline asset unavailable: '+url.pathname);
+    }
   })());
 });
