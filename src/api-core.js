@@ -155,6 +155,12 @@ function adminEmails(env){
 }
 function roleHasAdmin(role){return String(role||'').split(/[\s,]+/).some(x=>x.toLowerCase()==='admin')}
 function adminIdentity(user,env){return !!user&&(roleHasAdmin(user.role)||adminEmails(env).has(String(user.email||'').toLowerCase()))}
+async function adminForUser(user,env){
+  if(adminIdentity(user,env))return true;
+  if(!user?.id||!env.DATABASE_URL)return false;
+  const sql=db(env),rows=await sql`select email,role,banned from neon_auth."user" where id=${user.id}::uuid limit 1`;
+  return !!rows[0]&&!rows[0].banned&&adminIdentity(rows[0],env);
+}
 async function requireAdmin(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return {response:json({error:'Sign in required'},401)};
   if(!env.DATABASE_URL)return {response:json({error:'Admin data is not configured'},503)};
@@ -234,9 +240,9 @@ async function stripe(env,path,params){
 
 async function me(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
-  const profile=await ensureProfile(auth.user,env),subscription=await subscriptionFor(auth.user.id,env),preferences=await preferenceFor(auth.user.id,env);
+  const profile=await ensureProfile(auth.user,env),subscription=await subscriptionFor(auth.user.id,env),preferences=await preferenceFor(auth.user.id,env),admin=await adminForUser(auth.user,env);
   const premium=!!subscription&&ACTIVE.has(subscription.status)&&(!subscription.current_period_end||new Date(subscription.current_period_end).getTime()>Date.now());
-  return json({user:{id:auth.user.id,email:auth.user.email,name:auth.user.name},profile,subscription,premium,preferences,admin:adminIdentity(auth.user,env)});
+  return json({user:{id:auth.user.id,email:auth.user.email,name:auth.user.name},profile,subscription,premium,preferences,admin});
 }
 async function preferences(req,env){
   const auth=await authSession(req,env);if(!auth?.user)return json({error:'Sign in required'},401);
