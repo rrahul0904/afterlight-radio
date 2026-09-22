@@ -88,6 +88,8 @@ if(musicManifest.tracks.some(track=>track.channels!==2||track.bars!==12||track.g
 const musicLab=await readFile(path.join(root,'scripts/music-lab.mjs'),'utf8');
 const musicReviewGate=await readFile(path.join(root,'scripts/music-review-gate.mjs'),'utf8');
 const catalogPolicy=JSON.parse(await readFile(path.join(root,'music','catalog-policy.json'),'utf8'));
+const musicMasterIntake=await readFile(path.join(root,'scripts','music-master-intake.mjs'),'utf8');
+const musicMasterExample=JSON.parse(await readFile(path.join(root,'music','master-intake.example.json'),'utf8'));
 new Function(musicLab.replace(/^import .*$/gm,'').replace(/await /g,''));
 new Function(musicReviewGate.replace(/^import .*$/gm,'').replace(/await /g,''));
 for(const needle of ['renderMusicCandidate','review.html','technicalPass','Export review JSON','Nothing is production-approved automatically','listenedSeconds','packageId','candidateSha256']){
@@ -97,6 +99,10 @@ for(const needle of ['minimumReviewers','minimumListenedSeconds','minimumScores'
   if(!musicReviewGate.includes(needle))throw new Error('Music review gate missing: '+needle);
 }
 if(catalogPolicy.production?.minimumReviewers<2||catalogPolicy.production?.minimumScores?.musicality<4||catalogPolicy.production?.minimumScores?.fatigueResistance<4)throw new Error('Production music review policy is too weak');
+for(const needle of ['parseWav','licensed-for-afterlight','commercialUseCleared','modelDisclosure','studio-master-intake','candidateSha256']){
+  if(!musicMasterIntake.includes(needle))throw new Error('Studio master intake contract missing: '+needle);
+}
+if(musicMasterExample.schemaVersion!==1||musicMasterExample.commercialUseCleared!==true||!musicMasterExample.sourceRevision)throw new Error('Studio master intake example drifted');
 
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const wrangler=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
