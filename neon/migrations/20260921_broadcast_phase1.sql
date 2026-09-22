@@ -16,6 +16,7 @@ create table if not exists public.broadcast_items (
   id uuid primary key default gen_random_uuid(),
   broadcast_id uuid not null references public.broadcasts(id) on delete cascade,
   ordinal integer not null check (ordinal >= 0),
+  sort_key numeric(20,6) not null default 0,
   kind text not null check (kind in ('track','break','ident','segment')),
   source_id text,
   source_room text,
@@ -46,6 +47,7 @@ create table if not exists public.broadcast_events (
 
 create index if not exists broadcasts_status_created_idx on public.broadcasts(status,created_at desc);
 create index if not exists broadcast_items_broadcast_ordinal_idx on public.broadcast_items(broadcast_id,ordinal);
+create index if not exists broadcast_items_broadcast_sort_idx on public.broadcast_items(broadcast_id,sort_key,ordinal);
 create index if not exists broadcast_items_broadcast_state_idx on public.broadcast_items(broadcast_id,state,ordinal);
 create index if not exists broadcast_events_broadcast_created_idx on public.broadcast_events(broadcast_id,created_at desc);
 
