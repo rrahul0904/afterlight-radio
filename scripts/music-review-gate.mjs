@@ -17,8 +17,13 @@ if(new Set(reviewPaths).size!==reviewPaths.length)throw new Error('Duplicate rev
 
 const root=process.cwd();
 const policy=JSON.parse(await readFile(path.join(root,'music','catalog-policy.json'),'utf8'));
+const masteringPolicyRaw=await readFile(path.join(root,'music','mastering-policy.json'),'utf8');
+const masteringPolicy=JSON.parse(masteringPolicyRaw);
+const masteringPolicySha256=createHash('sha256').update(masteringPolicyRaw).digest('hex');
 const rules=policy[stage];
-const manifest=JSON.parse(await readFile(manifestPath,'utf8'));
+const manifestRaw=await readFile(manifestPath,'utf8');
+const manifest=JSON.parse(manifestRaw);
+const manifestSha256=createHash('sha256').update(manifestRaw).digest('hex');
 const reviews=[];
 const reviewerIds=new Set();
 for(const reviewPath of reviewPaths){
@@ -36,6 +41,15 @@ if(reviews.length<rules.minimumReviewers)throw new Error(stage+' review requires
 
 const packageRoot=path.dirname(manifestPath);
 const candidateRoot=path.resolve(packageRoot,'candidates');
+let masteringReport=null;
+if(stage==='production'&&manifest.source==='studio-master-intake'){
+  try{
+    const reportRaw=await readFile(path.join(packageRoot,'mastering-report.json'),'utf8');
+    masteringReport=JSON.parse(reportRaw);
+  }catch{
+    masteringReport={readError:true};
+  }
+}
 const byId=new Map(manifest.candidates.map(candidate=>[candidate.id,[]]));
 for(const review of reviews){
   const seen=new Set();
@@ -79,6 +93,25 @@ for(const candidate of manifest.candidates){
         reasons.push('candidate file unreadable');
       }
       if(!hashMatches&&!reasons.includes('candidate file unreadable'))reasons.push('candidate SHA-256 mismatch');
+    }
+  }
+
+  if(stage==='production'&&manifest.source==='studio-master-intake'){
+    if(masteringReport?.readError){
+      reasons.push('mastering report missing or unreadable');
+    }else{
+      if(masteringReport?.schemaVersion!==1)reasons.push('mastering report schema is invalid');
+      if(masteringReport?.packageId!==manifest.packageId)reasons.push('mastering report package mismatch');
+      if(masteringReport?.manifestSha256!==manifestSha256)reasons.push('mastering report manifest mismatch');
+      if(masteringReport?.policy?.sha256!==masteringPolicySha256||masteringReport?.policy?.schemaVersion!==masteringPolicy.schemaVersion)reasons.push('mastering report policy is stale');
+      if(masteringReport?.pass!==true)reasons.push('mastering package certification failed');
+      const masteringCandidate=masteringReport?.candidates?.find(entry=>entry.candidateId===candidate.id);
+      if(!masteringCandidate){
+        reasons.push('mastering report missing candidate');
+      }else{
+        if(String(masteringCandidate.candidateSha256||'').toLowerCase()!==String(candidate.sha256||'').toLowerCase())reasons.push('mastering report candidate SHA mismatch');
+        if(masteringCandidate.pass!==true)reasons.push('mastering certification failed');
+      }
     }
   }
 
