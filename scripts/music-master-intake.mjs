@@ -55,13 +55,15 @@ function sampleAt(buffer,offset,bits){
 function metrics(buffer,wav){
   const bytesPerSample=wav.bits/8,stride=Math.max(1,Math.floor(wav.sampleRate/1200));
   let sum=0,sumL=0,sumR=0,diff=0,mono=0,peak=0,dcL=0,dcR=0,count=0,nearClip=0;
-  for(let frame=0;frame<wav.frames;frame+=stride){
+  for(let frame=0;frame<wav.frames;frame++){
     const base=wav.start+frame*wav.blockAlign;
     if(base+wav.blockAlign>buffer.length)break;
     const l=sampleAt(buffer,base,wav.bits),r=sampleAt(buffer,base+bytesPerSample,wav.bits);
+    peak=Math.max(peak,Math.abs(l),Math.abs(r));
+    if(Math.abs(l)>.999||Math.abs(r)>.999)nearClip++;
+    if(frame%stride!==0)continue;
     sum+=(l*l+r*r)/2;sumL+=l*l;sumR+=r*r;diff+=(l-r)*(l-r);mono+=((l+r)*.5)**2;
-    dcL+=l;dcR+=r;peak=Math.max(peak,Math.abs(l),Math.abs(r));
-    if(Math.abs(l)>.999||Math.abs(r)>.999)nearClip++;count++;
+    dcL+=l;dcR+=r;count++;
   }
   if(!count)throw new Error('Master contains no readable audio frames');
   const rms=Math.sqrt(sum/count),leftRms=Math.sqrt(sumL/count),rightRms=Math.sqrt(sumR/count),stereoRatio=Math.sqrt(diff/count)/(Math.sqrt(mono/count)+.0001);
@@ -78,7 +80,7 @@ function metrics(buffer,wav){
     stereoRatio:Number(stereoRatio.toFixed(3)),
     dc:Number(dc.toFixed(6)),
     channelBalance:Number(balance.toFixed(3)),
-    nearClipSamples:nearClip,
+    nearClipFrames:nearClip,
     technicalPass
   };
 }
@@ -114,12 +116,12 @@ function reviewHtml(manifest){
 ${['roomFit','musicality','fatigueResistance','variation','productionPolish'].map(key=>`<label>${({roomFit:'Room fit',musicality:'Musicality',fatigueResistance:'Low fatigue',variation:'Variation',productionPolish:'Production polish'})[key]}<select data-score="${key}"><option value="">—</option>${[1,2,3,4,5].map(v=>`<option>${v}</option>`).join('')}</select></label>`).join('')}</div>
 <div class="row"><label>Notes<textarea id="notes"></textarea></label><label>Decision<select id="decision"><option value="">Choose…</option><option value="reject">Reject</option><option value="rework">Rework</option><option value="shortlist">Shortlist</option></select></label></div>
 <button id="export">Export review JSON</button><p id="status">A technical pass does not approve this master.</p></div></main>
-<script>const manifest=${JSON.stringify(manifest)},audio=document.querySelector('audio');let listened=0,last=0;
+<script>const manifest=${JSON.stringify(manifest)},audio=document.querySelector('audio'),statusEl=document.getElementById('status');let listened=0,last=0;
 audio.addEventListener('timeupdate',()=>{if(!audio.paused){listened+=Math.max(0,Math.min(1,audio.currentTime-last))}last=audio.currentTime});audio.addEventListener('seeked',()=>last=audio.currentTime);
-document.getElementById('export').onclick=()=>{const reviewer=document.getElementById('reviewer').value.trim();if(!reviewer){status.textContent='Reviewer ID is required.';return}
+document.getElementById('export').onclick=()=>{const reviewer=document.getElementById('reviewer').value.trim();if(!reviewer){statusEl.textContent='Reviewer ID is required.';return}
 const scores={};for(const el of document.querySelectorAll('[data-score]'))scores[el.dataset.score]=el.value?Number(el.value):null;
 const out={schemaVersion:1,packageId:manifest.packageId,room:manifest.room,generatedAt:new Date().toISOString(),reviewer,reviews:[{candidateId:'${escapeHtml(c.id)}',candidateSha256:'${c.sha256}',listenedSeconds:Math.round(listened),scores,decision:document.getElementById('decision').value||null,notes:document.getElementById('notes').value.trim()}]};
-const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=manifest.room+'-master-review.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),500);status.textContent='Review exported.'}</script></body></html>`;
+const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=manifest.room+'-master-review.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),500);statusEl.textContent='Review exported.'}</script></body></html>`;
 }
 
 const metadata=JSON.parse(await readFile(metadataPath,'utf8'));
