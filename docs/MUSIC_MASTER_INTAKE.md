@@ -84,7 +84,7 @@ Measurement uses FFmpeg `loudnorm` first-pass analysis. The report captures inte
 
 A failed mastering report remains useful evidence, but the production review gate fails closed until a passing report for the exact package exists. Beta listening can still happen before mastering certification so reviewers can identify musically promising material that needs rework.
 
-## Promotion
+## Production review
 
 Technical intake and mastering certification never publish audio.
 
@@ -98,5 +98,30 @@ npm run music:review-gate -- \
   --manifest .music-lab/rooftop-master-001/manifest.json \
   --reviews reviewer-a.json,reviewer-b.json
 ```
+
+## Explicit release certificate
+
+A passing production review still does not mean the audio should silently become the live catalog. An operator must create a release certificate for a specific stable room/track slot:
+
+```bash
+npm run music:release-certificate -- \
+  --manifest .music-lab/rooftop-master-001/manifest.json \
+  --reviews reviewer-a.json,reviewer-b.json \
+  --operator "Release Operator" \
+  --slot rooftop:1 \
+  --candidate rooftop-master-001
+```
+
+The command re-runs the production review gate, re-hashes the candidate audio, and writes `release-certificate.json`. The certificate binds:
+
+- target room and one of its three stable track slots
+- exact candidate SHA-256
+- audition package ID and manifest SHA-256
+- mastering-report SHA-256 for studio masters
+- hashes and reviewer identities for the review files
+- human score averages and shortlist-vote evidence
+- explicit operator identity and decision timestamp
+
+Its status is `approved-for-release-packaging`. That wording is deliberate: the certificate **does not deploy, publish, upload, or replace production audio**. Actual media publication and hosted exact-revision verification remain separate release actions. If the reviewed audio changes after approval, certificate generation fails.
 
 A future Open Music Studio pipeline should emit the provenance sidecar directly. Afterlight should remain the catalog/listening product; generation and editing stay outside the runtime request path.
