@@ -286,8 +286,8 @@ async function adminBroadcastStatus(req,env){
     const broadcasts=await gate.sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts order by (status='live') desc,created_at desc limit 1`;
     const broadcast=broadcasts[0]||null;
     if(!broadcast)return json({broadcast:null,nowPlaying:null,next:null,counts:{}});
-    const nowRows=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('airing','handed') order by case state when 'airing' then 0 else 1 end,ordinal limit 1`;
-    const nextRows=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('planned','ready') order by ordinal limit 1`;
+    const nowRows=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('airing','handed') order by case state when 'airing' then 0 else 1 end,sort_key,ordinal limit 1`;
+    const nextRows=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('planned','ready') order by sort_key,ordinal limit 1`;
     const countRows=await gate.sql`select state,count(*)::int as count from broadcast_items where broadcast_id=${broadcast.id}::uuid group by state order by state`;
     return json({broadcast,nowPlaying:nowRows[0]||null,next:nextRows[0]||null,counts:Object.fromEntries(countRows.map(row=>[row.state,row.count]))});
   }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
@@ -302,7 +302,7 @@ async function adminBroadcastLineup(req,env,url){
       :await gate.sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts order by (status='live') desc,created_at desc limit 1`;
     const broadcast=broadcasts[0]||null;
     if(!broadcast)return json({broadcast:null,items:[]});
-    const items=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason,created_at,updated_at from broadcast_items where broadcast_id=${broadcast.id}::uuid order by ordinal limit 250`;
+    const items=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason,created_at,updated_at from broadcast_items where broadcast_id=${broadcast.id}::uuid order by sort_key,ordinal limit 250`;
     return json({broadcast,items});
   }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
 }
@@ -354,8 +354,8 @@ async function adminBroadcastStart(req,env){
         insert into broadcasts (name,status,brief,planner_seed,started_at,updated_at)
         values (${name},'live',${brief},${seed},now(),now()) returning id,name,status,brief,planner_seed,started_at
       ), inserted as (
-        insert into broadcast_items (broadcast_id,ordinal,kind,source_id,source_room,title,state,selection_reason,scheduled_for)
-        select created.id,p.ordinal,'track',p.source_id,p.source_room,p.title,'planned',p.selection_reason,now()
+        insert into broadcast_items (broadcast_id,ordinal,sort_key,kind,source_id,source_room,title,state,selection_reason,scheduled_for)
+        select created.id,p.ordinal,(p.ordinal*1000)::numeric,'track',p.source_id,p.source_room,p.title,'planned',p.selection_reason,now()
         from created cross join jsonb_to_recordset(${JSON.stringify(plan)}::jsonb)
           as p(ordinal integer,source_id text,source_room text,title text,selection_reason jsonb)
         returning id
@@ -423,6 +423,41 @@ async function adminBroadcastEvents(req,env,url){
     const events=await gate.sql`select id,broadcast_id,broadcast_item_id,event_type,payload,actor,command_id,created_at from broadcast_events where broadcast_id=${broadcastId}::uuid order by created_at desc,id desc limit ${limit}`;
     return json({broadcastId,events});
   }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+
+
+async function adminBroadcastReorder(req,env){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
+  let existing;try{existing=await existingBroadcastCommand(gate.sql,commandId)}catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+  if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  const x=await body(req),broadcastId=String(x.broadcast_id||'').trim(),ordered=Array.isArray(x.ordered_item_ids)?x.ordered_item_ids.map(String):[];
+  if(!validBroadcastId(broadcastId)||!ordered.length||ordered.length>250||new Set(ordered).size!==ordered.length||ordered.some(id=>!validBroadcastId(id)))return json({error:'Invalid broadcast reorder payload'},400);
+  try{
+    const current=await gate.sql`select id::text as id from broadcast_items where broadcast_id=${broadcastId}::uuid and state in ('planned','ready') order by sort_key,ordinal`;
+    const currentIds=current.map(row=>row.id),currentSet=new Set(currentIds);
+    if(currentIds.length!==ordered.length||ordered.some(id=>!currentSet.has(id)))return json({error:'Reorder must contain every currently eligible planned item exactly once'},409);
+    const rows=await gate.sql`
+      with desired as (
+        select value::uuid as id,((ordinality-1)*1000)::numeric as sort_key
+        from jsonb_array_elements_text(${JSON.stringify(ordered)}::jsonb) with ordinality
+      ), changed as (
+        update broadcast_items i set sort_key=desired.sort_key,updated_at=now()
+        from desired
+        where i.id=desired.id and i.broadcast_id=${broadcastId}::uuid and i.state in ('planned','ready')
+        returning i.id
+      ), logged as (
+        insert into broadcast_events (broadcast_id,event_type,payload,actor,command_id)
+        select ${broadcastId}::uuid,'broadcast.lineup.reordered',jsonb_build_object('item_count',(select count(*) from changed)),${String(gate.user.id)},${commandId}
+        returning broadcast_id
+      )
+      select broadcast_id,(select count(*)::int from changed) as changed_count from logged`;
+    if(!rows[0]||rows[0].changed_count!==ordered.length)return json({error:'Broadcast lineup changed during reorder; refresh and try again'},409);
+    return json({ok:true,broadcastId:rows[0].broadcast_id,changed:rows[0].changed_count});
+  }catch(error){
+    const replay=await existingBroadcastCommand(gate.sql,commandId);if(replay)return json({ok:true,replayed:true,broadcastId:replay.broadcast_id,event:replay.event_type});
+    if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error;
+  }
 }
 
 
@@ -522,6 +557,7 @@ async function api(req,env,url){
   if(url.pathname==='/api/admin/broadcast/events'&&req.method==='GET')return adminBroadcastEvents(req,env,url);
   if(url.pathname==='/api/admin/broadcast/start'&&req.method==='POST')return adminBroadcastStart(req,env);
   if(url.pathname==='/api/admin/broadcast/stop'&&req.method==='POST')return adminBroadcastStop(req,env);
+  if(url.pathname==='/api/admin/broadcast/reorder'&&req.method==='POST')return adminBroadcastReorder(req,env);
   {const m=url.pathname.match(new RegExp('^/api/admin/broadcast/items/([0-9a-f-]+)/(skip|remove)$','i'));if(m&&req.method==='POST')return adminBroadcastItemCommand(req,env,m[1],m[2]);}
   if(url.pathname==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req,env);
   if(url.pathname==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,env,url);
