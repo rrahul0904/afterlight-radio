@@ -100,5 +100,10 @@ const certificateCore={
 const certificateId=createHash('sha256').update(JSON.stringify(certificateCore)).digest('hex');
 const certificate={...certificateCore,certificateId};
 const outPath=path.resolve(arg('out',path.join(packageRoot,'release-certificate.json')));
-await writeFile(outPath,JSON.stringify(certificate,null,2)+'\n');
+try{
+  await writeFile(outPath,JSON.stringify(certificate,null,2)+'\n',{flag:'wx'});
+}catch(error){
+  if(error?.code==='EEXIST')throw new Error('Release certificate already exists; preserve it and use a new --out path for a distinct release decision');
+  throw error;
+}
 console.log(JSON.stringify({out:outPath,certificateId,status:certificate.status,target:certificate.target,candidate:certificate.candidate},null,2));
