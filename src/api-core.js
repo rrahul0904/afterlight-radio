@@ -278,6 +278,36 @@ async function adminUsers(req,env,url){
   return json({total:countRows[0]?.total||0,offset,limit,users});
 }
 
+function validBroadcastId(value){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||''))}
+function broadcastSchemaMissing(error){return error?.code==='42P01'||String(error?.message||'').includes('broadcasts')||String(error?.message||'').includes('broadcast_items')}
+async function adminBroadcastStatus(req,env){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  try{
+    const broadcasts=await gate.sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts order by (status='live') desc,created_at desc limit 1`;
+    const broadcast=broadcasts[0]||null;
+    if(!broadcast)return json({broadcast:null,nowPlaying:null,next:null,counts:{}});
+    const nowRows=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('airing','handed') order by case state when 'airing' then 0 else 1 end,ordinal limit 1`;
+    const nextRows=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('planned','ready') order by ordinal limit 1`;
+    const countRows=await gate.sql`select state,count(*)::int as count from broadcast_items where broadcast_id=${broadcast.id}::uuid group by state order by state`;
+    return json({broadcast,nowPlaying:nowRows[0]||null,next:nextRows[0]||null,counts:Object.fromEntries(countRows.map(row=>[row.state,row.count]))});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+async function adminBroadcastLineup(req,env,url){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const requested=String(url.searchParams.get('broadcast_id')||'').trim();
+  if(requested&&!validBroadcastId(requested))return json({error:'Invalid broadcast id'},400);
+  try{
+    const broadcasts=requested
+      ?await gate.sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts where id=${requested}::uuid limit 1`
+      :await gate.sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts order by (status='live') desc,created_at desc limit 1`;
+    const broadcast=broadcasts[0]||null;
+    if(!broadcast)return json({broadcast:null,items:[]});
+    const items=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason,created_at,updated_at from broadcast_items where broadcast_id=${broadcast.id}::uuid order by ordinal limit 250`;
+    return json({broadcast,items});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+
+
 async function stripe(env,path,params){
   if(!env.STRIPE_RESTRICTED_KEY)throw new Error('Stripe is not configured');
   const form=new URLSearchParams();for(const [k,v] of Object.entries(params||{}))if(v!==undefined&&v!==null)form.set(k,String(v));
@@ -369,6 +399,8 @@ async function api(req,env,url){
   if(url.pathname==='/api/events'&&req.method==='POST')return events(req,env);
   if(url.pathname==='/api/admin/summary'&&req.method==='GET')return adminSummary(req,env);
   if(url.pathname==='/api/admin/users'&&req.method==='GET')return adminUsers(req,env,url);
+  if(url.pathname==='/api/admin/broadcast/status'&&req.method==='GET')return adminBroadcastStatus(req,env);
+  if(url.pathname==='/api/admin/broadcast/lineup'&&req.method==='GET')return adminBroadcastLineup(req,env,url);
   if(url.pathname==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req,env);
   if(url.pathname==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,env,url);
   if(url.pathname==='/api/library/provider/lyrics'&&req.method==='GET')return providerLyrics(req,env,url);
