@@ -452,8 +452,8 @@ async function adminBroadcastReorder(req,env){
         returning broadcast_id
       )
       select broadcast_id,(select count(*)::int from changed) as changed_count from logged`;
-    if(!rows[0]||rows[0].changed_count!==ordered.length)return json({error:'Broadcast lineup changed during reorder; refresh and try again'},409);
-    return json({ok:true,broadcastId:rows[0].broadcast_id,changed:rows[0].changed_count});
+    if(!rows[0])return json({error:'Broadcast reorder could not be recorded'},409);
+    return json({ok:true,broadcastId:rows[0].broadcast_id,changed:rows[0].changed_count,requested:ordered.length,partial:rows[0].changed_count!==ordered.length});
   }catch(error){
     const replay=await existingBroadcastCommand(gate.sql,commandId);if(replay)return json({ok:true,replayed:true,broadcastId:replay.broadcast_id,event:replay.event_type});
     if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error;
