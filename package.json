@@ -9,7 +9,7 @@
     "check": "node scripts/check.mjs",
     "check:quality": "node scripts/product-quality-check.mjs",
     "check:worker": "npx --yes wrangler@4.130.0 deploy --dry-run --outdir .wrangler-dry-run",
-    "test": "npm run build && npm run check && npm run check:music && npm run check:music-lab && npm run check:music-master-intake && npm run check:provider-lyrics && npm run check:quality && npm run check:runtime && npm run check:vercel && npm run check:vercel-config && npm run check:hosted && npm run check:preview-server && npm run audit && npm run check:worker",
+    "test": "npm run build && npm run check && npm run check:music && npm run check:broadcast && npm run check:music-lab && npm run check:music-master-intake && npm run check:provider-lyrics && npm run check:quality && npm run check:runtime && npm run check:vercel && npm run check:vercel-config && npm run check:hosted && npm run check:preview-server && npm run audit && npm run check:worker",
     "serve": "python3 -m http.server 4173 -d public",
     "cf:dev": "npm run build && npx --yes wrangler@4.130.0 dev",
     "cf:deploy": "npm run build && npx --yes wrangler@4.130.0 deploy",
@@ -26,7 +26,8 @@
     "music:review-gate": "node scripts/music-review-gate.mjs",
     "check:music-lab": "node --check scripts/music-lab.mjs && node --check scripts/music-review-gate.mjs && node scripts/music-lab-smoke.mjs && node scripts/music-review-gate-smoke.mjs",
     "music:intake-master": "node scripts/music-master-intake.mjs",
-    "check:music-master-intake": "node --check scripts/music-master-intake.mjs && node scripts/music-master-intake-smoke.mjs"
+    "check:music-master-intake": "node --check scripts/music-master-intake.mjs && node scripts/music-master-intake-smoke.mjs",
+    "check:broadcast": "node scripts/broadcast-check.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0"
