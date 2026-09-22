@@ -45,6 +45,7 @@ Implemented in current `main`:
 - authenticated, server-side Navidrome/Subsonic provider boundary.
 - provider search, stream, artwork and Range forwarding.
 - Music Lab long-form candidate rendering, blind audition packages and human review/promotion policy.
+- source-agnostic studio-master intake for higher-fidelity Open Music Studio/human-produced candidates with SHA/provenance binding.
 - credentials kept server-side with HTTPS/private-host guardrails.
 
 ## Catalog-quality workstream
