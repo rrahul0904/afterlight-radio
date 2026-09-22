@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 const args=process.argv.slice(2);
@@ -12,26 +13,35 @@ const stage=arg('stage','beta');
 if(!['beta','production'].includes(stage))throw new Error('--stage must be beta or production');
 const reviewPaths=reviewArg.split(',').map(x=>x.trim()).filter(Boolean).map(x=>path.resolve(x));
 if(!reviewPaths.length)throw new Error('Provide one or more comma-separated review JSON files with --reviews');
+if(new Set(reviewPaths).size!==reviewPaths.length)throw new Error('Duplicate review file paths are not allowed');
 
 const root=process.cwd();
 const policy=JSON.parse(await readFile(path.join(root,'music','catalog-policy.json'),'utf8'));
 const rules=policy[stage];
 const manifest=JSON.parse(await readFile(manifestPath,'utf8'));
 const reviews=[];
+const reviewerIds=new Set();
 for(const reviewPath of reviewPaths){
   const review=JSON.parse(await readFile(reviewPath,'utf8'));
   if(review.room!==manifest.room)throw new Error('Review room does not match manifest: '+reviewPath);
-  reviews.push({path:reviewPath,...review});
+  const reviewer=String(review.reviewer||'').trim();
+  if(!reviewer)throw new Error('Review is missing reviewer identity: '+reviewPath);
+  const reviewerId=reviewer.toLocaleLowerCase('en-US');
+  if(reviewerIds.has(reviewerId))throw new Error('Duplicate reviewer identity: '+reviewer);
+  reviewerIds.add(reviewerId);
+  reviews.push({path:reviewPath,...review,reviewer});
 }
 if(reviews.length<rules.minimumReviewers)throw new Error(stage+' review requires at least '+rules.minimumReviewers+' reviewer files');
 
+const packageRoot=path.dirname(manifestPath);
+const candidateRoot=path.resolve(packageRoot,'candidates');
 const byId=new Map(manifest.candidates.map(candidate=>[candidate.id,[]]));
 for(const review of reviews){
   const seen=new Set();
   for(const item of review.reviews||[]){
     if(!byId.has(item.candidateId)||seen.has(item.candidateId))continue;
     seen.add(item.candidateId);
-    byId.get(item.candidateId).push(item);
+    byId.get(item.candidateId).push({...item,reviewer:review.reviewer});
   }
 }
 
@@ -43,16 +53,38 @@ for(const candidate of manifest.candidates){
   if(!String(candidate.rights||'').startsWith('first-party'))reasons.push('rights/provenance is not first-party');
   if(candidateReviews.length<rules.minimumReviewers)reasons.push('insufficient reviewer coverage');
 
+  const candidateFile=String(candidate.file||'').trim();
+  let hashMatches=false;
+  if(!candidateFile){
+    reasons.push('candidate file missing');
+  }else{
+    const candidatePath=path.resolve(candidateRoot,candidateFile);
+    const relative=path.relative(candidateRoot,candidatePath);
+    if(relative.startsWith('..')||path.isAbsolute(relative)){
+      reasons.push('candidate file escapes audition package');
+    }else{
+      try{
+        const bytes=await readFile(candidatePath);
+        const actualHash=createHash('sha256').update(bytes).digest('hex');
+        hashMatches=/^[0-9a-f]{64}$/i.test(String(candidate.sha256||''))&&actualHash.toLowerCase()===String(candidate.sha256).toLowerCase();
+      }catch{
+        reasons.push('candidate file unreadable');
+      }
+      if(!hashMatches&&!reasons.includes('candidate file unreadable'))reasons.push('candidate SHA-256 mismatch');
+    }
+  }
+
   const valid=candidateReviews.filter(review=>Number(review.listenedSeconds)>=rules.minimumListenedSeconds);
   if(valid.length<rules.minimumReviewers)reasons.push('insufficient listening time');
   if(candidateReviews.some(review=>review.decision==='reject'))reasons.push('received reject decision');
-  const shortlistVotes=candidateReviews.filter(review=>review.decision==='shortlist').length;
+  const shortlistVotes=valid.filter(review=>review.decision==='shortlist').length;
   if(shortlistVotes<rules.minimumShortlistVotes)reasons.push('not enough shortlist votes');
 
   const averages={};
   for(const [key,minimum] of Object.entries(rules.minimumScores)){
-    const scores=valid.map(review=>Number(review.scores?.[key])).filter(Number.isFinite);
+    const scores=valid.map(review=>Number(review.scores?.[key])).filter(score=>Number.isFinite(score)&&score>=1&&score<=5);
     averages[key]=scores.length?scores.reduce((a,b)=>a+b,0)/scores.length:null;
+    if(scores.length<valid.length)reasons.push(key+' has invalid or missing score');
     if(scores.length<rules.minimumReviewers||averages[key]<minimum)reasons.push(key+' below '+minimum);
   }
 
@@ -60,9 +92,10 @@ for(const candidate of manifest.candidates){
     candidateId:candidate.id,
     approved:reasons.length===0,
     reviewers:candidateReviews.length,
+    eligibleReviewers:valid.length,
     shortlistVotes,
     averages,
-    reasons
+    reasons:[...new Set(reasons)]
   });
 }
 const approved=results.filter(result=>result.approved);
