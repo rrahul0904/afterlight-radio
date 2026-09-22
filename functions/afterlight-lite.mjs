@@ -174,7 +174,7 @@ async function adminUsers(req,url){
 }
 
 function validBroadcastId(value){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||''))}
-function broadcastSchemaMissing(error){return error?.code==='42P01'||String(error?.message||'').includes('broadcasts')||String(error?.message||'').includes('broadcast_items')}
+function broadcastSchemaMissing(error){const message=String(error?.message||'');return error?.code==='42P01'||message.includes('broadcasts')||message.includes('broadcast_items')||message.includes('broadcast_events')}
 async function adminBroadcastStatus(req){
   const gate=await requireAdmin(req);if(gate.response)return gate.response;
   try{
@@ -240,7 +240,7 @@ async function existingBroadcastCommand(_sql,commandId){const rows=await sql`sel
 async function adminBroadcastStart(req){
   const gate=await requireAdmin(req);if(gate.response)return gate.response;
   const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
-  const existing=await existingBroadcastCommand(sql,commandId);if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  let existing;try{existing=await existingBroadcastCommand(sql,commandId)}catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
   const x=await body(req),name=String(x.name||'Afterlight Broadcast').trim().slice(0,120)||'Afterlight Broadcast',brief=String(x.brief||'').trim().slice(0,1000),seed=String(x.seed||new Date().toISOString().slice(0,10)).slice(0,128),room=String(x.room||'').trim().slice(0,64);
   let plan;try{plan=broadcastPlan(seed,x.count,room)}catch(error){return json({error:error.message},400)}
   try{
@@ -270,7 +270,7 @@ async function adminBroadcastStart(req){
 async function adminBroadcastStop(req){
   const gate=await requireAdmin(req);if(gate.response)return gate.response;
   const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
-  const existing=await existingBroadcastCommand(sql,commandId);if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  let existing;try{existing=await existingBroadcastCommand(sql,commandId)}catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
   try{
     const rows=await sql`
       with stopped as (
@@ -290,7 +290,7 @@ async function adminBroadcastItemCommand(req,itemId,action){
   const gate=await requireAdmin(req);if(gate.response)return gate.response;
   if(!validBroadcastId(itemId))return json({error:'Invalid broadcast item id'},400);
   const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
-  const existing=await existingBroadcastCommand(sql,commandId);if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  let existing;try{existing=await existingBroadcastCommand(sql,commandId)}catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
   const nextState=action==='skip'?'skipped':'removed',eventType='broadcast.item.'+nextState;
   try{
     const rows=await sql`
