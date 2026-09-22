@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "name": "Afterlight background-listening mastering window",
+  "basis": "Internal pre-release consistency target for Afterlight; not a universal streaming-platform requirement.",
+  "measurement": "EBU R128-style integrated loudness and true-peak analysis via FFmpeg loudnorm first pass",
+  "integratedLufs": {
+    "target": -16,
+    "min": -20,
+    "max": -13
+  },
+  "truePeakDbtp": {
+    "max": -1.0
+  },
+  "loudnessRangeLu": {
+    "max": 18
+  }
+}
