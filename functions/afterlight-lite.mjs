@@ -173,6 +173,153 @@ async function adminUsers(req,url){
   return json({total:countRows[0]?.total||0,offset,limit,users});
 }
 
+function validBroadcastId(value){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||''))}
+function broadcastSchemaMissing(error){return error?.code==='42P01'||String(error?.message||'').includes('broadcasts')||String(error?.message||'').includes('broadcast_items')}
+async function adminBroadcastStatus(req){
+  const gate=await requireAdmin(req);if(gate.response)return gate.response;
+  try{
+    const broadcasts=await sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts order by (status='live') desc,created_at desc limit 1`;
+    const broadcast=broadcasts[0]||null;
+    if(!broadcast)return json({broadcast:null,nowPlaying:null,next:null,counts:{}});
+    const nowRows=await sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('airing','handed') order by case state when 'airing' then 0 else 1 end,ordinal limit 1`;
+    const nextRows=await sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('planned','ready') order by ordinal limit 1`;
+    const countRows=await sql`select state,count(*)::int as count from broadcast_items where broadcast_id=${broadcast.id}::uuid group by state order by state`;
+    return json({broadcast,nowPlaying:nowRows[0]||null,next:nextRows[0]||null,counts:Object.fromEntries(countRows.map(row=>[row.state,row.count]))});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+async function adminBroadcastLineup(req,url){
+  const gate=await requireAdmin(req);if(gate.response)return gate.response;
+  const requested=String(url.searchParams.get('broadcast_id')||'').trim();
+  if(requested&&!validBroadcastId(requested))return json({error:'Invalid broadcast id'},400);
+  try{
+    const broadcasts=requested
+      ?await sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts where id=${requested}::uuid limit 1`
+      :await sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts order by (status='live') desc,created_at desc limit 1`;
+    const broadcast=broadcasts[0]||null;
+    if(!broadcast)return json({broadcast:null,items:[]});
+    const items=await sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason,created_at,updated_at from broadcast_items where broadcast_id=${broadcast.id}::uuid order by ordinal limit 250`;
+    return json({broadcast,items});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+
+
+
+const BROADCAST_CATALOG=[
+  ['roma','Pizzeria Roma',['The red booth','Closing time oregano','Receipt under the saucer']],
+  ['window','The window seat',['Streetlights in water','Quiet between the buses','Blue room, warm cup']],
+  ['long-way-home','The long way home',['Exit nineteen','Windows down','The road after sunset']],
+  ['two-hundred','Two hundred to go',['Pump number four','Receipt in the wind','Coffee under neon']],
+  ['one-more-log','Just one more log',['Cedar and wool','Snow against the door','Embers talking']],
+  ['rooftop','Nobody wants to go in',['Orange on the parapet','Windows turning gold','Last glass before dark']],
+  ['friends','A few good friends',['The long story','Glass on stone','Stay for another']],
+  ['backroom','The backroom stage',['Before the encore','Red curtain hum','Mic left on']],
+  ['headspace','A little headspace',['Margin notes','The second cup','Window open four inches']],
+  ['last-bus','The last bus',['Doors closing','Nobody at the platform','Home through glass']],
+  ['momentum','A little momentum',['Toast and sunlight','Before everyone wakes','Half a grapefruit']],
+  ['between','Somewhere in between',['Room without an address','Almost remembered','Signal through fog']]
+].flatMap(([room,roomName,titles])=>titles.map((title,index)=>({id:room+':'+(index+1),room,roomName,title})));
+function broadcastHash(input){let h=2166136261>>>0;for(const ch of String(input)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function broadcastPlan(seed,count=12,room=''){
+  const pool=room?BROADCAST_CATALOG.filter(track=>track.room===room):BROADCAST_CATALOG;
+  if(!pool.length)throw new Error('Unknown broadcast room');
+  const wanted=Math.max(1,Math.min(36,Number(count)||12)),recentWindow=Math.min(6,Math.max(0,pool.length-1)),chosen=[],cycle=new Set();
+  for(let ordinal=0;ordinal<wanted;ordinal++){
+    if(cycle.size>=pool.length)cycle.clear();
+    const recent=new Set(chosen.slice(-recentWindow).map(track=>track.id));
+    let available=pool.filter(track=>!cycle.has(track.id)&&!recent.has(track.id));
+    if(!available.length)available=pool.filter(track=>!recent.has(track.id));
+    available.sort((a,b)=>broadcastHash(seed+':'+ordinal+':'+a.id)-broadcastHash(seed+':'+ordinal+':'+b.id)||a.id.localeCompare(b.id));
+    const picked=available[0]||pool[broadcastHash(seed+':fallback:'+ordinal)%pool.length];
+    cycle.add(picked.id);chosen.push(picked);
+  }
+  return chosen.map((track,ordinal)=>({ordinal,source_id:track.id,source_room:track.room,title:track.title,selection_reason:{policy:'deterministic-first-party-v1',seed,room:room||null}}));
+}
+function broadcastCommandId(req){const value=String(req.headers.get('Idempotency-Key')||'').trim();return /^[A-Za-z0-9._:-]{8,128}$/.test(value)?value:''}
+
+async function existingBroadcastCommand(_sql,commandId){const rows=await sql`select broadcast_id,event_type,payload from broadcast_events where command_id=${commandId} limit 1`;return rows[0]||null}
+async function adminBroadcastStart(req){
+  const gate=await requireAdmin(req);if(gate.response)return gate.response;
+  const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
+  const existing=await existingBroadcastCommand(sql,commandId);if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  const x=await body(req),name=String(x.name||'Afterlight Broadcast').trim().slice(0,120)||'Afterlight Broadcast',brief=String(x.brief||'').trim().slice(0,1000),seed=String(x.seed||new Date().toISOString().slice(0,10)).slice(0,128),room=String(x.room||'').trim().slice(0,64);
+  let plan;try{plan=broadcastPlan(seed,x.count,room)}catch(error){return json({error:error.message},400)}
+  try{
+    const rows=await sql`
+      with created as (
+        insert into broadcasts (name,status,brief,planner_seed,started_at,updated_at)
+        values (${name},'live',${brief},${seed},now(),now()) returning id,name,status,brief,planner_seed,started_at
+      ), inserted as (
+        insert into broadcast_items (broadcast_id,ordinal,kind,source_id,source_room,title,state,selection_reason,scheduled_for)
+        select created.id,p.ordinal,'track',p.source_id,p.source_room,p.title,'planned',p.selection_reason,now()
+        from created cross join jsonb_to_recordset(${JSON.stringify(plan)}::jsonb)
+          as p(ordinal integer,source_id text,source_room text,title text,selection_reason jsonb)
+        returning id
+      ), logged as (
+        insert into broadcast_events (broadcast_id,event_type,payload,actor,command_id)
+        select created.id,'broadcast.started',jsonb_build_object('count',${plan.length},'seed',${seed},'room',${room||null}),${String(gate.user.id)},${commandId} from created
+        returning broadcast_id
+      )
+      select created.*, (select count(*)::int from inserted) as item_count from created`;
+    return json({ok:true,broadcast:rows[0]||null},201);
+  }catch(error){
+    const replay=await existingBroadcastCommand(sql,commandId);if(replay)return json({ok:true,replayed:true,broadcastId:replay.broadcast_id,event:replay.event_type});
+    if(String(error?.message||'').includes('broadcasts_one_live_idx')||error?.code==='23505')return json({error:'A broadcast is already live'},409);
+    if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error;
+  }
+}
+async function adminBroadcastStop(req){
+  const gate=await requireAdmin(req);if(gate.response)return gate.response;
+  const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
+  const existing=await existingBroadcastCommand(sql,commandId);if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  try{
+    const rows=await sql`
+      with stopped as (
+        update broadcasts set status='ended',ended_at=now(),updated_at=now()
+        where id=(select id from broadcasts where status='live' order by started_at desc nulls last,created_at desc limit 1)
+        returning id
+      ), logged as (
+        insert into broadcast_events (broadcast_id,event_type,payload,actor,command_id)
+        select id,'broadcast.stopped','{}'::jsonb,${String(gate.user.id)},${commandId} from stopped returning broadcast_id
+      )
+      select broadcast_id from logged`;
+    if(!rows[0])return json({error:'No live broadcast'},404);
+    return json({ok:true,broadcastId:rows[0].broadcast_id});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+async function adminBroadcastItemCommand(req,itemId,action){
+  const gate=await requireAdmin(req);if(gate.response)return gate.response;
+  if(!validBroadcastId(itemId))return json({error:'Invalid broadcast item id'},400);
+  const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
+  const existing=await existingBroadcastCommand(sql,commandId);if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  const nextState=action==='skip'?'skipped':'removed',eventType='broadcast.item.'+nextState;
+  try{
+    const rows=await sql`
+      with changed as (
+        update broadcast_items set state=${nextState},ended_at=now(),updated_at=now()
+        where id=${itemId}::uuid and state in ('planned','ready')
+        returning id,broadcast_id,state
+      ), logged as (
+        insert into broadcast_events (broadcast_id,broadcast_item_id,event_type,payload,actor,command_id)
+        select broadcast_id,id,${eventType},jsonb_build_object('state',state),${String(gate.user.id)},${commandId} from changed
+        returning broadcast_id,broadcast_item_id
+      )
+      select * from logged`;
+    if(!rows[0])return json({error:'Item is not eligible for '+action},409);
+    return json({ok:true,...rows[0]});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+async function adminBroadcastEvents(req,url){
+  const gate=await requireAdmin(req);if(gate.response)return gate.response;
+  const requested=String(url.searchParams.get('broadcast_id')||'').trim();if(requested&&!validBroadcastId(requested))return json({error:'Invalid broadcast id'},400);
+  const limit=Math.max(1,Math.min(100,Number(url.searchParams.get('limit'))||25));
+  try{
+    const broadcasts=requested?await sql`select id from broadcasts where id=${requested}::uuid limit 1`:await sql`select id from broadcasts order by (status='live') desc,created_at desc limit 1`;
+    const broadcastId=broadcasts[0]?.id;if(!broadcastId)return json({broadcastId:null,events:[]});
+    const events=await sql`select id,broadcast_id,broadcast_item_id,event_type,payload,actor,command_id,created_at from broadcast_events where broadcast_id=${broadcastId}::uuid order by created_at desc,id desc limit ${limit}`;
+    return json({broadcastId,events});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+
 async function stripe(path,params){if(!process.env.STRIPE_RESTRICTED_KEY)throw new Error('Stripe portal is not configured');const form=new URLSearchParams();for(const [k,v] of Object.entries(params||{}))if(v!==undefined&&v!==null)form.set(k,String(v));const r=await fetch('https://api.stripe.com/v1/'+path,{method:'POST',headers:{Authorization:'Bearer '+process.env.STRIPE_RESTRICTED_KEY,'Stripe-Version':STRIPE_VERSION,'Content-Type':'application/x-www-form-urlencoded'},body:form});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'Stripe request failed');return d}
 async function me(req){const a=await session(req);if(!a?.user)return json({error:'Sign in required'},401);const p=await profile(a.user),sub=await subscription(a.user.id),pref=await preference(a.user.id),admin=await adminForUser(a.user),premium=!!sub&&ACTIVE.has(sub.status)&&(!sub.current_period_end||new Date(sub.current_period_end).getTime()>Date.now());return json({user:{id:a.user.id,email:a.user.email,name:a.user.name},profile:p,subscription:sub,premium,preferences:pref,admin})}
 async function preferences(req){const a=await session(req);if(!a?.user)return json({error:'Sign in required'},401);if(req.method==='GET')return json({preferences:await preference(a.user.id)});const x=await body(req),favorites=Array.isArray(x.favorites)?x.favorites.slice(0,30).map(String):[],csv=favorites.join(',');const rows=await sql`insert into user_preferences (user_id,favorites,last_room,last_track,volume,muted,timer_end,updated_at) values (${a.user.id}::uuid,coalesce(string_to_array(${csv},','),array[]::text[]),${String(x.last_room||'rooftop').slice(0,64)},${Math.max(0,Math.min(2,Number(x.last_track)||0))},${Math.max(0,Math.min(100,Number(x.volume)||0))},${!!x.muted},${x.timer_end||null}::timestamptz,now()) on conflict (user_id) do update set favorites=excluded.favorites,last_room=excluded.last_room,last_track=excluded.last_track,volume=excluded.volume,muted=excluded.muted,timer_end=excluded.timer_end,updated_at=now() returning *`;return json({preferences:rows[0]})}
@@ -188,6 +335,6 @@ async function userByCustomer(customer){if(!customer)return null;return (await s
 async function syncSubscription(obj){let userId=obj.metadata?.user_id||await userByCustomer(typeof obj.customer==='string'?obj.customer:obj.customer?.id);if(!userId)return;const customer=typeof obj.customer==='string'?obj.customer:obj.customer?.id||null,period=obj.current_period_end?new Date(obj.current_period_end*1000).toISOString():null;await sql`insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,plan,status,current_period_end,cancel_at_period_end,updated_at) values (${userId}::uuid,${customer},${obj.id},${obj.metadata?.plan||'unknown'},${obj.status},${period}::timestamptz,${!!obj.cancel_at_period_end},now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,stripe_subscription_id=excluded.stripe_subscription_id,plan=excluded.plan,status=excluded.status,current_period_end=excluded.current_period_end,cancel_at_period_end=excluded.cancel_at_period_end,updated_at=now()`;if(customer)await sql`insert into profiles (user_id,stripe_customer_id,updated_at) values (${userId}::uuid,${customer},now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,updated_at=now()`}
 async function webhook(req){const raw=await req.text(),secret=process.env.STRIPE_WEBHOOK_SECRET;if(!secret||!await verifyStripe(raw,req.headers.get('Stripe-Signature'),secret))return json({error:'Invalid signature'},400);const event=JSON.parse(raw),obj=event.data?.object||{};if(event.type==='checkout.session.completed'){const userId=obj.client_reference_id||obj.metadata?.user_id,customer=typeof obj.customer==='string'?obj.customer:obj.customer?.id,subId=typeof obj.subscription==='string'?obj.subscription:obj.subscription?.id,plan=obj.metadata?.plan||'unknown';if(userId&&customer){await sql`insert into profiles (user_id,stripe_customer_id,updated_at) values (${userId}::uuid,${customer},now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,updated_at=now()`;if(subId)await sql`insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,plan,status,updated_at) values (${userId}::uuid,${customer},${subId},${plan},'active',now()) on conflict (user_id) do update set stripe_customer_id=excluded.stripe_customer_id,stripe_subscription_id=excluded.stripe_subscription_id,plan=excluded.plan,status='active',updated_at=now()`}}if(['customer.subscription.created','customer.subscription.updated','customer.subscription.deleted'].includes(event.type))await syncSubscription(obj);return json({received:true})}
 
-async function route(req){const url=new URL(req.url),p=url.pathname;if(p.startsWith('/api/auth/'))return authProxy(req,url);if(p==='/api/health')return json({ok:true,configured:configured(),backend:'neon-function'});if(p==='/api/ready'){const c=configured();let database=false;if(c.data)try{database=(await sql`select 1 as ok`)[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout&&c.webhook,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon-function'})}if(p==='/api/config'){const c=configured();return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEnabled:c.data,externalLibraryEnabled:c.externalLibrary})}if(p==='/api/me'&&req.method==='GET')return me(req);if(p==='/api/preferences'&&['GET','PUT'].includes(req.method))return preferences(req);if(p==='/api/checkout'&&req.method==='POST')return checkout(req);if(p==='/api/portal'&&req.method==='POST')return portal(req);if(p==='/api/events'&&req.method==='POST')return events(req);if(p==='/api/admin/summary'&&req.method==='GET')return adminSummary(req);if(p==='/api/admin/users'&&req.method==='GET')return adminUsers(req,url);if(p==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req);if(p==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,url);if(p==='/api/library/provider/lyrics'&&req.method==='GET')return providerLyrics(req,url);if(p==='/api/library/provider/stream'&&['GET','HEAD'].includes(req.method))return providerBinary(req,url,'stream');if(p==='/api/library/provider/artwork'&&['GET','HEAD'].includes(req.method))return providerBinary(req,url,'artwork');if(p==='/api/support'&&req.method==='POST')return support(req);if(p==='/api/stripe/webhook'&&req.method==='POST')return webhook(req);return json({error:'Not found'},404)}
+async function route(req){const url=new URL(req.url),p=url.pathname;if(p.startsWith('/api/auth/'))return authProxy(req,url);if(p==='/api/health')return json({ok:true,configured:configured(),backend:'neon-function'});if(p==='/api/ready'){const c=configured();let database=false;if(c.data)try{database=(await sql`select 1 as ok`)[0]?.ok===1}catch{}return json({ok:c.auth&&database&&c.checkout&&c.webhook,auth:c.auth,database,checkout:c.checkout,webhook:c.webhook,portal:c.portal,backend:'neon-function'})}if(p==='/api/config'){const c=configured();return json({authEnabled:c.auth,billingEnabled:c.checkout,portalEnabled:c.portal,webhookEnabled:c.webhook,supportEnabled:c.data,externalLibraryEnabled:c.externalLibrary})}if(p==='/api/me'&&req.method==='GET')return me(req);if(p==='/api/preferences'&&['GET','PUT'].includes(req.method))return preferences(req);if(p==='/api/checkout'&&req.method==='POST')return checkout(req);if(p==='/api/portal'&&req.method==='POST')return portal(req);if(p==='/api/events'&&req.method==='POST')return events(req);if(p==='/api/admin/summary'&&req.method==='GET')return adminSummary(req);if(p==='/api/admin/users'&&req.method==='GET')return adminUsers(req,url);if(p==='/api/admin/broadcast/status'&&req.method==='GET')return adminBroadcastStatus(req);if(p==='/api/admin/broadcast/lineup'&&req.method==='GET')return adminBroadcastLineup(req,url);if(p==='/api/admin/broadcast/events'&&req.method==='GET')return adminBroadcastEvents(req,url);if(p==='/api/admin/broadcast/start'&&req.method==='POST')return adminBroadcastStart(req);if(p==='/api/admin/broadcast/stop'&&req.method==='POST')return adminBroadcastStop(req);{const m=p.match(new RegExp('^/api/admin/broadcast/items/([0-9a-f-]+)/(skip|remove)$','i'));if(m&&req.method==='POST')return adminBroadcastItemCommand(req,m[1],m[2]);}if(p==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req);if(p==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,url);if(p==='/api/library/provider/lyrics'&&req.method==='GET')return providerLyrics(req,url);if(p==='/api/library/provider/stream'&&['GET','HEAD'].includes(req.method))return providerBinary(req,url,'stream');if(p==='/api/library/provider/artwork'&&['GET','HEAD'].includes(req.method))return providerBinary(req,url,'artwork');if(p==='/api/support'&&req.method==='POST')return support(req);if(p==='/api/stripe/webhook'&&req.method==='POST')return webhook(req);return json({error:'Not found'},404)}
 
 export default{async fetch(request){try{return await route(request)}catch(error){console.error(error);return json({error:'Internal server error'},500)}}};
