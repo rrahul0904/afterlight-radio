@@ -24,6 +24,7 @@ const reviewerIds=new Set();
 for(const reviewPath of reviewPaths){
   const review=JSON.parse(await readFile(reviewPath,'utf8'));
   if(review.room!==manifest.room)throw new Error('Review room does not match manifest: '+reviewPath);
+  if(!manifest.packageId||review.packageId!==manifest.packageId)throw new Error('Review package does not match audition manifest: '+reviewPath);
   const reviewer=String(review.reviewer||'').trim();
   if(!reviewer)throw new Error('Review is missing reviewer identity: '+reviewPath);
   const reviewerId=reviewer.toLocaleLowerCase('en-US');
@@ -40,6 +41,8 @@ for(const review of reviews){
   const seen=new Set();
   for(const item of review.reviews||[]){
     if(!byId.has(item.candidateId)||seen.has(item.candidateId))continue;
+    const candidate=manifest.candidates.find(entry=>entry.id===item.candidateId);
+    if(!candidate||String(item.candidateSha256||'').toLowerCase()!==String(candidate.sha256||'').toLowerCase())continue;
     seen.add(item.candidateId);
     byId.get(item.candidateId).push({...item,reviewer:review.reviewer});
   }
