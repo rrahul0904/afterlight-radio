@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "rooftop-master-001",
+  "room": "rooftop",
+  "title": "Orange After Midnight",
+  "sourceType": "open-music-studio",
+  "rightsStatus": "first-party",
+  "creator": "Afterlight Music",
+  "sourceRevision": "open-music-studio:<commit-or-generation-id>",
+  "commercialUseCleared": true,
+  "containsThirdPartySamples": false,
+  "thirdPartyClearanceReference": null,
+  "aiAssisted": true,
+  "modelDisclosure": "<provider/model and generation provenance>",
+  "licenseReference": null,
+  "provenanceNotes": "Original master created for Afterlight; no uncleared third-party recordings."
+}
