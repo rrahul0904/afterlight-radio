@@ -25,6 +25,7 @@ const manifest={
     file:'a.wav',
     sha256,
     rights:'first-party procedural candidate; not production-approved',
+    generator:'afterlight-composition-engine-v3-lab',
     metrics:{technicalPass:true}
   }]
 };

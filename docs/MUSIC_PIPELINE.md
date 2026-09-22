@@ -80,3 +80,10 @@ npm run music:review-gate -- \
 ```
 
 This gate is deliberately separate from the normal application CI: human music quality cannot be proven by unit tests.
+
+
+## Higher-fidelity studio masters
+
+Music Lab is now source-agnostic at the catalog boundary. `scripts/music-master-intake.mjs` can package an original 16/24-bit PCM studio master from Open Music Studio or a human production workflow without weakening the human review gate.
+
+The intake path deliberately does **not** auto-publish or replace the v3 catalog. It validates the WAV, records provenance/rights declarations, computes the exact SHA-256, creates an audition package, and requires the same beta/production listening thresholds. See `docs/MUSIC_MASTER_INTAKE.md`.
