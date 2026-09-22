@@ -104,9 +104,10 @@ document.getElementById('export').onclick=()=>{
   if(!reviewer){document.getElementById('status').textContent='Add a reviewer ID before exporting.';return;}
   const reviews=[...document.querySelectorAll('.candidate')].map(card=>{
     const scores={};for(const el of card.querySelectorAll('[data-score]'))scores[el.dataset.score]=el.value?Number(el.value):null;
-    return {candidateId:card.dataset.id,listenedSeconds:Math.round(listened[card.dataset.id]),scores,decision:card.querySelector('[data-decision]').value||null,notes:card.querySelector('[data-notes]').value.trim()};
+    const candidate=manifest.candidates.find(item=>item.id===card.dataset.id);
+    return {candidateId:card.dataset.id,candidateSha256:candidate?.sha256||null,listenedSeconds:Math.round(listened[card.dataset.id]),scores,decision:card.querySelector('[data-decision]').value||null,notes:card.querySelector('[data-notes]').value.trim()};
   });
-  const output={schemaVersion:1,room:manifest.room,generatedAt:new Date().toISOString(),reviewer,reviews};
+  const output={schemaVersion:1,packageId:manifest.packageId,room:manifest.room,generatedAt:new Date().toISOString(),reviewer,reviews};
   const blob=new Blob([JSON.stringify(output,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=manifest.room+'-music-review.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
   document.getElementById('status').textContent='Review exported. Keep the JSON with the candidate artifact.';
@@ -129,9 +130,15 @@ for(const room of rooms){
     await writeFile(path.join(roomRoot,'candidates',file),rendered.bytes);
     candidates.push({id:room.slug+'-'+label,file,sha256,...rendered.metadata,metrics});
   }
+  const packageId=createHash('sha256').update(JSON.stringify({
+    room:room.slug,
+    bars,
+    candidates:candidates.map(candidate=>({id:candidate.id,sha256:candidate.sha256,seed:candidate.seed}))
+  })).digest('hex');
   const manifest={
     schemaVersion:1,
     status:'audition-only',
+    packageId,
     room:room.slug,
     roomName:room.name,
     generatedAt:new Date().toISOString(),
@@ -142,8 +149,8 @@ for(const room of rooms){
   await writeFile(path.join(roomRoot,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
   await writeFile(path.join(roomRoot,'review.html'),reviewHtml(manifest));
   await writeFile(path.join(roomRoot,'review-template.json'),JSON.stringify({
-    schemaVersion:1,room:room.slug,reviewer:'',generatedAt:null,
-    reviews:candidates.map(c=>({candidateId:c.id,listenedSeconds:0,scores:{roomFit:null,musicality:null,fatigueResistance:null,variation:null,productionPolish:null},decision:null,notes:''}))
+    schemaVersion:1,packageId,room:room.slug,reviewer:'',generatedAt:null,
+    reviews:candidates.map(c=>({candidateId:c.id,candidateSha256:c.sha256,listenedSeconds:0,scores:{roomFit:null,musicality:null,fatigueResistance:null,variation:null,productionPolish:null},decision:null,notes:''}))
   },null,2)+'\n');
   summary.push({room:room.slug,candidates:candidates.length,minDuration:Math.min(...candidates.map(c=>c.metrics.durationSeconds)),maxDuration:Math.max(...candidates.map(c=>c.metrics.durationSeconds)),technicalPass:candidates.filter(c=>c.metrics.technicalPass).length,out:roomRoot});
 }
