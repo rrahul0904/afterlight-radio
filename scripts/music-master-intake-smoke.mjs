@@ -81,11 +81,21 @@ try{
   const gated=JSON.parse(result.stdout);
   expect('review gate approves mastered imported master',gated.approved?.[0]===candidate.id,result);
 
+  result=run(process.execPath,[path.join(root,'scripts','music-release-certificate.mjs'),'--manifest',manifestPath,'--reviews',alice+','+bob,'--operator','CI Release Operator','--slot','rooftop:1','--candidate',candidate.id]);
+  expect('release certificate creation',result.status===0,result);
+  const releaseCertificate=JSON.parse(await readFile(path.join(out,'release-certificate.json'),'utf8'));
+  expect('release certificate remains non-publishing',releaseCertificate.status==='approved-for-release-packaging'&&/does not deploy, publish, upload, or replace production audio/i.test(releaseCertificate.boundary));
+  expect('release certificate target binding',releaseCertificate.target?.slot==='rooftop:1'&&releaseCertificate.candidate?.sha256===candidate.sha256);
+  expect('release certificate evidence binding',Boolean(releaseCertificate.evidence?.manifestSha256)&&Boolean(releaseCertificate.evidence?.masteringReportSha256)&&releaseCertificate.evidence?.reviews?.length===2);
+  expect('release certificate id',/^[0-9a-f]{64}$/.test(releaseCertificate.certificateId||''));
+
   await writeFile(path.join(out,'candidates','master.wav'),Buffer.from('tampered'));
   result=run(process.execPath,[path.join(root,'scripts','music-review-gate.mjs'),'--stage','production','--manifest',manifestPath,'--reviews',alice+','+bob]);
   expect('tampered imported master fails gate',result.status!==0,result);
+  result=run(process.execPath,[path.join(root,'scripts','music-release-certificate.mjs'),'--manifest',manifestPath,'--reviews',alice+','+bob,'--operator','CI Release Operator','--slot','rooftop:1','--candidate',candidate.id]);
+  expect('tampered imported master cannot receive release certificate',result.status!==0,result);
 
-  console.log('PASS studio master intake: WAV validation, provenance, mastering certification, human production review, and SHA tamper binding');
+  console.log('PASS studio master intake: WAV validation, provenance, mastering certification, human production review, explicit non-publishing release certificate, and SHA tamper binding');
 }finally{
   await rm(temp,{recursive:true,force:true});
 }
