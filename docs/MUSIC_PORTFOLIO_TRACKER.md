@@ -46,6 +46,7 @@ Implemented in current `main`:
 - provider search, stream, artwork and Range forwarding.
 - Music Lab long-form candidate rendering, blind audition packages and human review/promotion policy.
 - source-agnostic studio-master intake for higher-fidelity Open Music Studio/human-produced candidates with SHA/provenance binding.
+- FFmpeg-based studio mastering certification with LUFS, true-peak and loudness-range evidence bound to the exact audition package before production approval.
 - credentials kept server-side with HTTPS/private-host guardrails.
 
 ## Catalog-quality workstream
@@ -54,12 +55,13 @@ Current production audio remains the deterministic v3 36-track baseline. The Mus
 
 The target process is:
 
-1. generate several longer candidates for a room;
+1. generate or produce several longer candidates for a room;
 2. automatically reject broken/clipping/collapsed-stereo candidates;
-3. blind-listen and score room fit, musicality, fatigue, variation and polish;
-4. reject/rework/shortlist;
-5. require stronger multi-reviewer thresholds before public-production promotion;
-6. keep the released catalog immutable until a reviewed master is deliberately promoted.
+3. run mastering consistency analysis for studio masters and reject stale/missing evidence at production gate;
+4. blind-listen and score room fit, musicality, fatigue, variation and polish;
+5. reject/rework/shortlist;
+6. require stronger multi-reviewer thresholds before public-production promotion;
+7. keep the released catalog immutable until a reviewed master is deliberately promoted.
 
 The Music Lab is not a user-facing song generator and does not collapse the Open Music Studio boundary.
 

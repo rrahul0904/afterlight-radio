@@ -55,11 +55,40 @@ The command creates an audition-only package containing:
 
 The exact master is SHA-256 bound to the package. Reviews carry the package ID and candidate SHA so a review from an older batch cannot be replayed against a replacement audio file.
 
+## Mastering certification
+
+Production approval for a studio master also requires an FFmpeg loudness report. FFmpeg must be installed and available as `ffmpeg`, or its path supplied through `FFMPEG_BIN`.
+
+Run certification after intake and before final production review:
+
+```bash
+npm run music:mastering-certify -- \
+  --manifest .music-lab/rooftop-master-001/manifest.json
+```
+
+The command writes `mastering-report.json` beside the manifest. The report is bound to:
+
+- the audition `packageId`
+- the exact manifest SHA-256
+- the exact candidate audio SHA-256
+- the current `music/mastering-policy.json` SHA-256
+- the FFmpeg version that performed measurement
+
+The current policy is an **Afterlight internal background-listening consistency window**, not a claim that every streaming service or genre should use the same mastering target. It currently requires:
+
+- integrated loudness between **-20 and -13 LUFS**, with -16 LUFS as the internal center target
+- true peak no higher than **-1.0 dBTP**
+- loudness range no higher than **18 LU**
+
+Measurement uses FFmpeg `loudnorm` first-pass analysis. The report captures integrated loudness, true peak and loudness range without normalizing or altering the candidate master.
+
+A failed mastering report remains useful evidence, but the production review gate fails closed until a passing report for the exact package exists. Beta listening can still happen before mastering certification so reviewers can identify musically promising material that needs rework.
+
 ## Promotion
 
-Technical intake never publishes audio.
+Technical intake and mastering certification never publish audio.
 
-The imported package must still pass `music:review-gate`. Production review currently requires two distinct reviewer identities, sufficient listening coverage, threshold scores, explicit shortlist votes, no reject vote, technical validity and cleared provenance.
+The imported package must still pass `music:review-gate`. Production review currently requires two distinct reviewer identities, sufficient listening coverage, threshold scores, explicit shortlist votes, no reject vote, technical validity, a current passing mastering report, and cleared provenance.
 
 Example:
 
@@ -70,4 +99,4 @@ npm run music:review-gate -- \
   --reviews reviewer-a.json,reviewer-b.json
 ```
 
-A future Open Music Studio pipeline should emit this sidecar contract directly. Afterlight should remain the catalog/listening product; generation and editing stay outside the runtime request path.
+A future Open Music Studio pipeline should emit the provenance sidecar directly. Afterlight should remain the catalog/listening product; generation and editing stay outside the runtime request path.
