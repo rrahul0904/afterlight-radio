@@ -1,0 +1,78 @@
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+const root=process.cwd(),temp=await mkdtemp(path.join(tmpdir(),'afterlight-master-intake-'));
+const audioPath=path.join(temp,'master.wav'),metadataPath=path.join(temp,'master.json'),out=path.join(temp,'package');
+const sampleRate=32000,duration=92,frames=sampleRate*duration,channels=2,bits=16,dataBytes=frames*4;
+const wav=Buffer.allocUnsafe(44+dataBytes);
+wav.write('RIFF',0);wav.writeUInt32LE(36+dataBytes,4);wav.write('WAVE',8);wav.write('fmt ',12);
+wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(channels,22);wav.writeUInt32LE(sampleRate,24);
+wav.writeUInt32LE(sampleRate*4,28);wav.writeUInt16LE(4,32);wav.writeUInt16LE(bits,34);wav.write('data',36);wav.writeUInt32LE(dataBytes,40);
+for(let i=0;i<frames;i++){
+  const t=i/sampleRate,env=Math.min(1,t/1.2,(duration-t)/1.5);
+  const l=.34*Math.sin(Math.PI*2*220*t)*env+.035*Math.sin(Math.PI*2*440*t)*env;
+  const r=.31*Math.sin(Math.PI*2*223*t+.18)*env+.041*Math.sin(Math.PI*2*447*t+.35)*env;
+  wav.writeInt16LE(Math.round(Math.max(-1,Math.min(1,l))*32767),44+i*4);
+  wav.writeInt16LE(Math.round(Math.max(-1,Math.min(1,r))*32767),46+i*4);
+}
+await writeFile(audioPath,wav);
+await writeFile(metadataPath,JSON.stringify({
+  schemaVersion:1,
+  id:'rooftop-studio-smoke',
+  room:'rooftop',
+  title:'Studio intake smoke',
+  sourceType:'open-music-studio',
+  rightsStatus:'first-party',
+  creator:'Afterlight CI',
+  sourceRevision:'ci-fixture-v1',
+  commercialUseCleared:true,
+  containsThirdPartySamples:false,
+  aiAssisted:true,
+  modelDisclosure:'synthetic CI fixture; no external model'
+},null,2));
+
+function run(command,args){
+  return spawnSync(command,args,{cwd:root,encoding:'utf8',maxBuffer:10*1024*1024});
+}
+function expect(label,condition,result){
+  if(condition)return;
+  throw new Error(label+' failed\nstdout:\n'+(result?.stdout||'')+'\nstderr:\n'+(result?.stderr||''));
+}
+
+try{
+  let result=run(process.execPath,[path.join(root,'scripts','music-master-intake.mjs'),'--audio',audioPath,'--metadata',metadataPath,'--out',out]);
+  expect('master intake',result.status===0,result);
+  const manifest=JSON.parse(await readFile(path.join(out,'manifest.json'),'utf8'));
+  expect('audition-only package',manifest.status==='audition-only'&&manifest.source==='studio-master-intake');
+  expect('exact master candidate',manifest.candidates?.length===1&&manifest.candidates[0].metrics?.technicalPass===true);
+  expect('review package binding',Boolean(manifest.packageId)&&/^[0-9a-f]{64}$/.test(manifest.candidates[0].sha256));
+
+  const candidate=manifest.candidates[0];
+  const makeReview=async(name,reviewer)=>{
+    const file=path.join(temp,name+'.json');
+    await writeFile(file,JSON.stringify({
+      schemaVersion:1,packageId:manifest.packageId,room:manifest.room,reviewer,
+      reviews:[{
+        candidateId:candidate.id,candidateSha256:candidate.sha256,listenedSeconds:90,
+        scores:{roomFit:4,musicality:4,fatigueResistance:4,variation:4,productionPolish:4},
+        decision:'shortlist',notes:'CI acceptance fixture'
+      }]
+    }));
+    return file;
+  };
+  const alice=await makeReview('alice','Alice'),bob=await makeReview('bob','Bob');
+  result=run(process.execPath,[path.join(root,'scripts','music-review-gate.mjs'),'--stage','production','--manifest',path.join(out,'manifest.json'),'--reviews',alice+','+bob]);
+  expect('studio master production review compatibility',result.status===0,result);
+  const gated=JSON.parse(result.stdout);
+  expect('review gate approves imported master',gated.approved?.[0]===candidate.id,result);
+
+  await writeFile(path.join(out,'candidates','master.wav'),Buffer.from('tampered'));
+  result=run(process.execPath,[path.join(root,'scripts','music-review-gate.mjs'),'--stage','production','--manifest',path.join(out,'manifest.json'),'--reviews',alice+','+bob]);
+  expect('tampered imported master fails gate',result.status!==0,result);
+
+  console.log('PASS studio master intake: WAV validation, provenance, audition packaging, production review compatibility, SHA tamper binding');
+}finally{
+  await rm(temp,{recursive:true,force:true});
+}
