@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { generateAudio, audioRoomSlugs } from './audio-library.mjs';
+import { masterGeneratedCatalog, V3_MASTER_GAIN_DB } from './audio-mastering-trim.mjs';
 
 const root=process.cwd(),out=path.join(root,'public'),slugs=audioRoomSlugs;
 const improveContrast=html=>html
@@ -68,5 +69,7 @@ await writeFile(path.join(out,'_headers'),`/*
 `);
 
 const count=await generateAudio(out);
+const mastered=await masterGeneratedCatalog(out,slugs);
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
-console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest (sample ${sample.size} bytes)`);
+const masteredPeak=Math.max(...mastered.map(track=>track.masteredSamplePeak));
+console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest with +${V3_MASTER_GAIN_DB} dB linear master trim (max sample peak ${masteredPeak.toFixed(3)}, sample ${sample.size} bytes)`);
