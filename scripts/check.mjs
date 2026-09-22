@@ -90,10 +90,10 @@ const musicReviewGate=await readFile(path.join(root,'scripts/music-review-gate.m
 const catalogPolicy=JSON.parse(await readFile(path.join(root,'music','catalog-policy.json'),'utf8'));
 new Function(musicLab.replace(/^import .*$/gm,'').replace(/await /g,''));
 new Function(musicReviewGate.replace(/^import .*$/gm,'').replace(/await /g,''));
-for(const needle of ['renderMusicCandidate','review.html','technicalPass','Export review JSON','Nothing is production-approved automatically','listenedSeconds']){
+for(const needle of ['renderMusicCandidate','review.html','technicalPass','Export review JSON','Nothing is production-approved automatically','listenedSeconds','packageId','candidateSha256']){
   if(!musicLab.includes(needle))throw new Error('Music Lab contract missing: '+needle);
 }
-for(const needle of ['minimumReviewers','minimumListenedSeconds','minimumScores','shortlistVotes','technical QC failed']){
+for(const needle of ['minimumReviewers','minimumListenedSeconds','minimumScores','shortlistVotes','technical QC failed','Review package does not match audition manifest','candidateSha256']){
   if(!musicReviewGate.includes(needle))throw new Error('Music review gate missing: '+needle);
 }
 if(catalogPolicy.production?.minimumReviewers<2||catalogPolicy.production?.minimumScores?.musicality<4||catalogPolicy.production?.minimumScores?.fatigueResistance<4)throw new Error('Production music review policy is too weak');
