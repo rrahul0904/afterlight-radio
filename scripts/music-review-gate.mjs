@@ -53,7 +53,12 @@ for(const candidate of manifest.candidates){
   const candidateReviews=byId.get(candidate.id)||[];
   const reasons=[];
   if(!candidate.metrics?.technicalPass)reasons.push('technical QC failed');
-  if(!String(candidate.rights||'').startsWith('first-party'))reasons.push('rights/provenance is not first-party');
+  const rights=String(candidate.rights||'').trim();
+  const rightsCleared=rights.startsWith('first-party')||
+    (rights==='licensed-for-afterlight'&&candidate.commercialUseCleared===true&&String(candidate.licenseReference||'').trim());
+  if(!rightsCleared)reasons.push('rights/provenance is not first-party or explicitly licensed');
+  if(candidate.containsThirdPartySamples===true&&!String(candidate.thirdPartyClearanceReference||'').trim())reasons.push('third-party sample clearance is missing');
+  if(!String(candidate.sourceRevision||candidate.generator||'').trim())reasons.push('source revision/provenance is missing');
   if(candidateReviews.length<rules.minimumReviewers)reasons.push('insufficient reviewer coverage');
 
   const candidateFile=String(candidate.file||'').trim();
