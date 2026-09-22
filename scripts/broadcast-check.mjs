@@ -32,14 +32,14 @@ for(const [item,next,writer] of [[planned,'played','director'],[planned,'ready',
 if(BROADCAST_ITEM_STATES.length!==7)throw new Error('Broadcast state contract drifted');
 
 const migration=await readFile(path.join(root,'neon','migrations','20260921_broadcast_phase1.sql'),'utf8');
-for(const needle of ['create table if not exists public.broadcasts','create table if not exists public.broadcast_items','create table if not exists public.broadcast_events',"unique (broadcast_id, ordinal)","actor text not null default 'director'","command_id text unique","broadcasts_one_live_idx"]){
+for(const needle of ['create table if not exists public.broadcasts','create table if not exists public.broadcast_items','create table if not exists public.broadcast_events',"unique (broadcast_id, ordinal)","actor text not null default 'director'","command_id text unique","broadcasts_one_live_idx","sort_key numeric(20,6)","broadcast_items_broadcast_sort_idx"]){
   if(!migration.includes(needle))throw new Error('Broadcast migration contract missing: '+needle);
 }
 
 const core=await readFile(path.join(root,'src','api-core.js'),'utf8');
 const neonFn=await readFile(path.join(root,'functions','afterlight-lite.mjs'),'utf8');
 for(const source of [core,neonFn]){
-  for(const needle of ['/api/admin/broadcast/status','/api/admin/broadcast/lineup','/api/admin/broadcast/events','/api/admin/broadcast/start','/api/admin/broadcast/stop','broadcast/items/','Idempotency-Key','broadcast.item.','Admin access required','broadcast_items','broadcasts']){
+  for(const needle of ['/api/admin/broadcast/status','/api/admin/broadcast/lineup','/api/admin/broadcast/events','/api/admin/broadcast/start','/api/admin/broadcast/stop','/api/admin/broadcast/reorder','broadcast/items/','ordered_item_ids','Idempotency-Key','broadcast.item.','Admin access required','broadcast_items','broadcasts']){
     if(!source.includes(needle))throw new Error('Broadcast API parity missing: '+needle);
   }
 }
@@ -49,7 +49,7 @@ new Function(adminRuntime);
 for(const needle of ['Broadcast / AI-DJ mode','broadcastStart','broadcastStop','broadcastRows','broadcastEvents']){
   if(!admin.includes(needle))throw new Error('Broadcast admin surface missing: '+needle);
 }
-for(const needle of ['/api/admin/broadcast/status','/api/admin/broadcast/lineup','/api/admin/broadcast/events','/api/admin/broadcast/start','/api/admin/broadcast/stop','Idempotency-Key','crypto.randomUUID','runItemCommand']){
+for(const needle of ['/api/admin/broadcast/status','/api/admin/broadcast/lineup','/api/admin/broadcast/events','/api/admin/broadcast/start','/api/admin/broadcast/stop','/api/admin/broadcast/reorder','Idempotency-Key','crypto.randomUUID','runItemCommand','runReorder']){
   if(!adminRuntime.includes(needle))throw new Error('Broadcast admin runtime missing: '+needle);
 }
 for(const forbidden of ["localStorage.setItem('admin","sessionStorage.setItem('admin","?admin=true"]){
