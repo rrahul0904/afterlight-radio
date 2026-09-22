@@ -1,14 +1,17 @@
 (()=>{
-  const state={offset:0,limit:50,total:0,users:[],timer:null};
+  const state={offset:0,limit:50,total:0,users:[],timer:null,broadcast:null,lineup:[],broadcastEvents:[]};
   const $=id=>document.getElementById(id);
   const fmtDate=value=>value?new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'—';
   const fmtCount=value=>new Intl.NumberFormat().format(Number(value)||0);
-  const api=async path=>{
-    const response=await fetch(path,{headers:{Accept:'application/json'},credentials:'same-origin',cache:'no-store'});
+  const api=async (path,options={})=>{
+    const headers={Accept:'application/json',...(options.headers||{})};
+    if(options.body)headers['Content-Type']='application/json';
+    const response=await fetch(path,{method:options.method||'GET',headers,body:options.body,credentials:'same-origin',cache:'no-store'});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){const error=new Error(data.error||'Request failed');error.status=response.status;throw error}
     return data;
   };
+  const command=(path,payload={})=>api(path,{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify(payload)});
   const subscriptionLabel=user=>{
     const status=user.subscription_status||'free';
     return status==='free'?'Free':status.replaceAll('_',' ');
@@ -27,6 +30,62 @@
     $('adminNotice').textContent=data.total_users===0
       ? 'No registered Neon Auth users exist yet. The portal is live and will populate automatically as people create accounts.'
       : 'Showing the canonical Neon Auth directory, not only users who have already created an Afterlight profile row.';
+  }
+
+  const broadcastTrackLabel=item=>item?.title||item?.source_id||'—';
+  function renderBroadcast(){
+    const b=state.broadcast,status=b?.status||'inactive';
+    setText('broadcastStatus',status);
+    setText('broadcastNow',broadcastTrackLabel(state.broadcastNow));
+    setText('broadcastNext',broadcastTrackLabel(state.broadcastNext));
+    setText('broadcastPlanned',state.broadcastCounts?.planned||0);
+    $('broadcastStart').disabled=status==='live'||state.broadcastUnavailable;
+    $('broadcastStop').disabled=status!=='live'||state.broadcastUnavailable;
+    const rows=$('broadcastRows');
+    rows.replaceChildren(...state.lineup.map(item=>{
+      const tr=document.createElement('tr');
+      const ordinal=document.createElement('td');ordinal.textContent=String(Number(item.ordinal)+1);
+      const track=document.createElement('td');track.textContent=broadcastTrackLabel(item);
+      const room=document.createElement('td');room.textContent=item.source_room||'—';
+      const statusCell=document.createElement('td');const pill=document.createElement('span');pill.className='pill '+(item.state==='airing'?'good':'');pill.textContent=item.state;statusCell.appendChild(pill);
+      const actions=document.createElement('td');const wrap=document.createElement('div');wrap.className='rowactions';
+      for(const action of ['skip','remove']){
+        const button=document.createElement('button');button.type='button';button.textContent=action==='skip'?'Skip':'Remove';
+        button.disabled=!['planned','ready'].includes(item.state);
+        button.addEventListener('click',()=>runItemCommand(item.id,action));
+        wrap.appendChild(button);
+      }
+      actions.appendChild(wrap);tr.append(ordinal,track,room,statusCell,actions);return tr;
+    }));
+    $('broadcastEmpty').hidden=state.lineup.length>0;
+    $('broadcastEvents').textContent=state.broadcastEvents.length
+      ?state.broadcastEvents.map(event=>fmtDate(event.created_at)+' · '+event.event_type).join('\n')
+      :'No broadcast events yet.';
+  }
+  async function loadBroadcast(){
+    try{
+      const status=await api('/api/admin/broadcast/status');
+      const lineup=await api('/api/admin/broadcast/lineup'+(status.broadcast?.id?'?broadcast_id='+encodeURIComponent(status.broadcast.id):''));
+      const events=status.broadcast?.id?await api('/api/admin/broadcast/events?broadcast_id='+encodeURIComponent(status.broadcast.id)+'&limit=12'):{events:[]};
+      state.broadcast=status.broadcast||null;state.broadcastNow=status.nowPlaying||null;state.broadcastNext=status.next||null;state.broadcastCounts=status.counts||{};state.lineup=Array.isArray(lineup.items)?lineup.items:[];state.broadcastEvents=Array.isArray(events.events)?events.events:[];state.broadcastUnavailable=false;
+      $('broadcastMessage').textContent=state.broadcast?'Broadcast controls are server-authorized and every command is durably audited.':'No shared broadcast is active. Starting one creates a deterministic first-party 12-track lineup.';
+    }catch(error){
+      state.broadcast=null;state.lineup=[];state.broadcastEvents=[];state.broadcastUnavailable=true;
+      $('broadcastMessage').textContent=error.status===503?'Broadcast schema has not been installed in this environment yet.':'Broadcast controls are temporarily unavailable.';
+    }
+    renderBroadcast();
+  }
+  async function runBroadcastCommand(kind){
+    const button=kind==='start'?$('broadcastStart'):$('broadcastStop');button.disabled=true;
+    try{
+      if(kind==='start')await command('/api/admin/broadcast/start',{name:'Afterlight Broadcast',seed:new Date().toISOString().slice(0,10),count:12});
+      else await command('/api/admin/broadcast/stop');
+      await loadBroadcast();
+    }catch(error){$('broadcastMessage').textContent=error.message;await loadBroadcast()}
+  }
+  async function runItemCommand(itemId,action){
+    try{await command('/api/admin/broadcast/items/'+encodeURIComponent(itemId)+'/'+action);await loadBroadcast()}
+    catch(error){$('broadcastMessage').textContent=error.message}
   }
 
   function query(){
@@ -103,7 +162,7 @@
     try{
       await loadSummary();
       $('gate').hidden=true;$('console').hidden=false;
-      await loadUsers();
+      await Promise.all([loadUsers(),loadBroadcast()]);
     }catch(error){
       const message=error.status===401?'Sign in to an Afterlight account before opening the operator console.'
         :error.status===403?'Your signed-in account does not have Afterlight admin access.'
@@ -113,6 +172,8 @@
     }
   }
 
+  $('broadcastStart').addEventListener('click',()=>runBroadcastCommand('start'));
+  $('broadcastStop').addEventListener('click',()=>runBroadcastCommand('stop'));
   const refresh=()=>{clearTimeout(state.timer);state.timer=setTimeout(()=>{state.offset=0;loadUsers().catch(()=>{})},220)};
   $('search').addEventListener('input',refresh);
   for(const id of ['subscription','verified','accountState'])$(id).addEventListener('change',()=>{state.offset=0;loadUsers().catch(()=>{})});
