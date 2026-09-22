@@ -278,6 +278,189 @@ async function adminUsers(req,env,url){
   return json({total:countRows[0]?.total||0,offset,limit,users});
 }
 
+function validBroadcastId(value){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||''))}
+function broadcastSchemaMissing(error){const message=String(error?.message||'');return error?.code==='42P01'||message.includes('broadcasts')||message.includes('broadcast_items')||message.includes('broadcast_events')}
+async function adminBroadcastStatus(req,env){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  try{
+    const broadcasts=await gate.sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts order by (status='live') desc,created_at desc limit 1`;
+    const broadcast=broadcasts[0]||null;
+    if(!broadcast)return json({broadcast:null,nowPlaying:null,next:null,counts:{}});
+    const nowRows=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('airing','handed') order by case state when 'airing' then 0 else 1 end,sort_key,ordinal limit 1`;
+    const nextRows=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for from broadcast_items where broadcast_id=${broadcast.id}::uuid and state in ('planned','ready') order by sort_key,ordinal limit 1`;
+    const countRows=await gate.sql`select state,count(*)::int as count from broadcast_items where broadcast_id=${broadcast.id}::uuid group by state order by state`;
+    return json({broadcast,nowPlaying:nowRows[0]||null,next:nextRows[0]||null,counts:Object.fromEntries(countRows.map(row=>[row.state,row.count]))});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+async function adminBroadcastLineup(req,env,url){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const requested=String(url.searchParams.get('broadcast_id')||'').trim();
+  if(requested&&!validBroadcastId(requested))return json({error:'Invalid broadcast id'},400);
+  try{
+    const broadcasts=requested
+      ?await gate.sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts where id=${requested}::uuid limit 1`
+      :await gate.sql`select id,name,status,brief,active_persona_id,planner_seed,started_at,ended_at,created_at,updated_at from broadcasts order by (status='live') desc,created_at desc limit 1`;
+    const broadcast=broadcasts[0]||null;
+    if(!broadcast)return json({broadcast:null,items:[]});
+    const items=await gate.sql`select id,broadcast_id,ordinal,kind,source_id,source_room,title,artist,state,selection_reason,scheduled_for,started_at,ended_at,failure_reason,created_at,updated_at from broadcast_items where broadcast_id=${broadcast.id}::uuid order by sort_key,ordinal limit 250`;
+    return json({broadcast,items});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+
+
+
+const BROADCAST_CATALOG=[
+  ['roma','Pizzeria Roma',['The red booth','Closing time oregano','Receipt under the saucer']],
+  ['window','The window seat',['Streetlights in water','Quiet between the buses','Blue room, warm cup']],
+  ['long-way-home','The long way home',['Exit nineteen','Windows down','The road after sunset']],
+  ['two-hundred','Two hundred to go',['Pump number four','Receipt in the wind','Coffee under neon']],
+  ['one-more-log','Just one more log',['Cedar and wool','Snow against the door','Embers talking']],
+  ['rooftop','Nobody wants to go in',['Orange on the parapet','Windows turning gold','Last glass before dark']],
+  ['friends','A few good friends',['The long story','Glass on stone','Stay for another']],
+  ['backroom','The backroom stage',['Before the encore','Red curtain hum','Mic left on']],
+  ['headspace','A little headspace',['Margin notes','The second cup','Window open four inches']],
+  ['last-bus','The last bus',['Doors closing','Nobody at the platform','Home through glass']],
+  ['momentum','A little momentum',['Toast and sunlight','Before everyone wakes','Half a grapefruit']],
+  ['between','Somewhere in between',['Room without an address','Almost remembered','Signal through fog']]
+].flatMap(([room,roomName,titles])=>titles.map((title,index)=>({id:room+':'+(index+1),room,roomName,title})));
+function broadcastHash(input){let h=2166136261>>>0;for(const ch of String(input)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function broadcastPlan(seed,count=12,room=''){
+  const pool=room?BROADCAST_CATALOG.filter(track=>track.room===room):BROADCAST_CATALOG;
+  if(!pool.length)throw new Error('Unknown broadcast room');
+  const wanted=Math.max(1,Math.min(36,Number(count)||12)),recentWindow=Math.min(6,Math.max(0,pool.length-1)),chosen=[],cycle=new Set();
+  for(let ordinal=0;ordinal<wanted;ordinal++){
+    if(cycle.size>=pool.length)cycle.clear();
+    const recent=new Set(chosen.slice(-recentWindow).map(track=>track.id));
+    let available=pool.filter(track=>!cycle.has(track.id)&&!recent.has(track.id));
+    if(!available.length)available=pool.filter(track=>!recent.has(track.id));
+    available.sort((a,b)=>broadcastHash(seed+':'+ordinal+':'+a.id)-broadcastHash(seed+':'+ordinal+':'+b.id)||a.id.localeCompare(b.id));
+    const picked=available[0]||pool[broadcastHash(seed+':fallback:'+ordinal)%pool.length];
+    cycle.add(picked.id);chosen.push(picked);
+  }
+  return chosen.map((track,ordinal)=>({ordinal,source_id:track.id,source_room:track.room,title:track.title,selection_reason:{policy:'deterministic-first-party-v1',seed,room:room||null}}));
+}
+function broadcastCommandId(req){const value=String(req.headers.get('Idempotency-Key')||'').trim();return /^[A-Za-z0-9._:-]{8,128}$/.test(value)?value:''}
+
+async function existingBroadcastCommand(sql,commandId){const rows=await sql`select broadcast_id,event_type,payload from broadcast_events where command_id=${commandId} limit 1`;return rows[0]||null}
+async function adminBroadcastStart(req,env){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
+  let existing;try{existing=await existingBroadcastCommand(gate.sql,commandId)}catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  const x=await body(req),name=String(x.name||'Afterlight Broadcast').trim().slice(0,120)||'Afterlight Broadcast',brief=String(x.brief||'').trim().slice(0,1000),seed=String(x.seed||new Date().toISOString().slice(0,10)).slice(0,128),room=String(x.room||'').trim().slice(0,64);
+  let plan;try{plan=broadcastPlan(seed,x.count,room)}catch(error){return json({error:error.message},400)}
+  try{
+    const rows=await gate.sql`
+      with created as (
+        insert into broadcasts (name,status,brief,planner_seed,started_at,updated_at)
+        values (${name},'live',${brief},${seed},now(),now()) returning id,name,status,brief,planner_seed,started_at
+      ), inserted as (
+        insert into broadcast_items (broadcast_id,ordinal,sort_key,kind,source_id,source_room,title,state,selection_reason,scheduled_for)
+        select created.id,p.ordinal,(p.ordinal*1000)::numeric,'track',p.source_id,p.source_room,p.title,'planned',p.selection_reason,now()
+        from created cross join jsonb_to_recordset(${JSON.stringify(plan)}::jsonb)
+          as p(ordinal integer,source_id text,source_room text,title text,selection_reason jsonb)
+        returning id
+      ), logged as (
+        insert into broadcast_events (broadcast_id,event_type,payload,actor,command_id)
+        select created.id,'broadcast.started',jsonb_build_object('count',${plan.length},'seed',${seed},'room',${room||null}),${String(gate.user.id)},${commandId} from created
+        returning broadcast_id
+      )
+      select created.*, (select count(*)::int from inserted) as item_count from created`;
+    return json({ok:true,broadcast:rows[0]||null},201);
+  }catch(error){
+    const replay=await existingBroadcastCommand(gate.sql,commandId);if(replay)return json({ok:true,replayed:true,broadcastId:replay.broadcast_id,event:replay.event_type});
+    if(String(error?.message||'').includes('broadcasts_one_live_idx')||error?.code==='23505')return json({error:'A broadcast is already live'},409);
+    if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error;
+  }
+}
+async function adminBroadcastStop(req,env){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
+  let existing;try{existing=await existingBroadcastCommand(gate.sql,commandId)}catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  try{
+    const rows=await gate.sql`
+      with stopped as (
+        update broadcasts set status='ended',ended_at=now(),updated_at=now()
+        where id=(select id from broadcasts where status='live' order by started_at desc nulls last,created_at desc limit 1)
+        returning id
+      ), logged as (
+        insert into broadcast_events (broadcast_id,event_type,payload,actor,command_id)
+        select id,'broadcast.stopped','{}'::jsonb,${String(gate.user.id)},${commandId} from stopped returning broadcast_id
+      )
+      select broadcast_id from logged`;
+    if(!rows[0])return json({error:'No live broadcast'},404);
+    return json({ok:true,broadcastId:rows[0].broadcast_id});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+async function adminBroadcastItemCommand(req,env,itemId,action){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  if(!validBroadcastId(itemId))return json({error:'Invalid broadcast item id'},400);
+  const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
+  let existing;try{existing=await existingBroadcastCommand(gate.sql,commandId)}catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  const nextState=action==='skip'?'skipped':'removed',eventType='broadcast.item.'+nextState;
+  try{
+    const rows=await gate.sql`
+      with changed as (
+        update broadcast_items set state=${nextState},ended_at=now(),updated_at=now()
+        where id=${itemId}::uuid and state in ('planned','ready')
+        returning id,broadcast_id,state
+      ), logged as (
+        insert into broadcast_events (broadcast_id,broadcast_item_id,event_type,payload,actor,command_id)
+        select broadcast_id,id,${eventType},jsonb_build_object('state',state),${String(gate.user.id)},${commandId} from changed
+        returning broadcast_id,broadcast_item_id
+      )
+      select * from logged`;
+    if(!rows[0])return json({error:'Item is not eligible for '+action},409);
+    return json({ok:true,...rows[0]});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+async function adminBroadcastEvents(req,env,url){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const requested=String(url.searchParams.get('broadcast_id')||'').trim();if(requested&&!validBroadcastId(requested))return json({error:'Invalid broadcast id'},400);
+  const limit=Math.max(1,Math.min(100,Number(url.searchParams.get('limit'))||25));
+  try{
+    const broadcasts=requested?await gate.sql`select id from broadcasts where id=${requested}::uuid limit 1`:await gate.sql`select id from broadcasts order by (status='live') desc,created_at desc limit 1`;
+    const broadcastId=broadcasts[0]?.id;if(!broadcastId)return json({broadcastId:null,events:[]});
+    const events=await gate.sql`select id,broadcast_id,broadcast_item_id,event_type,payload,actor,command_id,created_at from broadcast_events where broadcast_id=${broadcastId}::uuid order by created_at desc,id desc limit ${limit}`;
+    return json({broadcastId,events});
+  }catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+}
+
+
+async function adminBroadcastReorder(req,env){
+  const gate=await requireAdmin(req,env);if(gate.response)return gate.response;
+  const commandId=broadcastCommandId(req);if(!commandId)return json({error:'Valid Idempotency-Key required'},400);
+  let existing;try{existing=await existingBroadcastCommand(gate.sql,commandId)}catch(error){if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error}
+  if(existing)return json({ok:true,replayed:true,broadcastId:existing.broadcast_id,event:existing.event_type});
+  const x=await body(req),broadcastId=String(x.broadcast_id||'').trim(),ordered=Array.isArray(x.ordered_item_ids)?x.ordered_item_ids.map(String):[];
+  if(!validBroadcastId(broadcastId)||!ordered.length||ordered.length>250||new Set(ordered).size!==ordered.length||ordered.some(id=>!validBroadcastId(id)))return json({error:'Invalid broadcast reorder payload'},400);
+  try{
+    const current=await gate.sql`select id::text as id from broadcast_items where broadcast_id=${broadcastId}::uuid and state in ('planned','ready') order by sort_key,ordinal`;
+    const currentIds=current.map(row=>row.id),currentSet=new Set(currentIds);
+    if(currentIds.length!==ordered.length||ordered.some(id=>!currentSet.has(id)))return json({error:'Reorder must contain every currently eligible planned item exactly once'},409);
+    const rows=await gate.sql`
+      with desired as (
+        select value::uuid as id,((ordinality-1)*1000)::numeric as sort_key
+        from jsonb_array_elements_text(${JSON.stringify(ordered)}::jsonb) with ordinality
+      ), changed as (
+        update broadcast_items i set sort_key=desired.sort_key,updated_at=now()
+        from desired
+        where i.id=desired.id and i.broadcast_id=${broadcastId}::uuid and i.state in ('planned','ready')
+        returning i.id
+      ), logged as (
+        insert into broadcast_events (broadcast_id,event_type,payload,actor,command_id)
+        select ${broadcastId}::uuid,'broadcast.lineup.reordered',jsonb_build_object('item_count',(select count(*) from changed)),${String(gate.user.id)},${commandId}
+        returning broadcast_id
+      )
+      select broadcast_id,(select count(*)::int from changed) as changed_count from logged`;
+    if(!rows[0])return json({error:'Broadcast reorder could not be recorded'},409);
+    return json({ok:true,broadcastId:rows[0].broadcast_id,changed:rows[0].changed_count,requested:ordered.length,partial:rows[0].changed_count!==ordered.length});
+  }catch(error){
+    const replay=await existingBroadcastCommand(gate.sql,commandId);if(replay)return json({ok:true,replayed:true,broadcastId:replay.broadcast_id,event:replay.event_type});
+    if(broadcastSchemaMissing(error))return json({error:'Broadcast schema is not installed'},503);throw error;
+  }
+}
+
+
 async function stripe(env,path,params){
   if(!env.STRIPE_RESTRICTED_KEY)throw new Error('Stripe is not configured');
   const form=new URLSearchParams();for(const [k,v] of Object.entries(params||{}))if(v!==undefined&&v!==null)form.set(k,String(v));
@@ -369,6 +552,13 @@ async function api(req,env,url){
   if(url.pathname==='/api/events'&&req.method==='POST')return events(req,env);
   if(url.pathname==='/api/admin/summary'&&req.method==='GET')return adminSummary(req,env);
   if(url.pathname==='/api/admin/users'&&req.method==='GET')return adminUsers(req,env,url);
+  if(url.pathname==='/api/admin/broadcast/status'&&req.method==='GET')return adminBroadcastStatus(req,env);
+  if(url.pathname==='/api/admin/broadcast/lineup'&&req.method==='GET')return adminBroadcastLineup(req,env,url);
+  if(url.pathname==='/api/admin/broadcast/events'&&req.method==='GET')return adminBroadcastEvents(req,env,url);
+  if(url.pathname==='/api/admin/broadcast/start'&&req.method==='POST')return adminBroadcastStart(req,env);
+  if(url.pathname==='/api/admin/broadcast/stop'&&req.method==='POST')return adminBroadcastStop(req,env);
+  if(url.pathname==='/api/admin/broadcast/reorder'&&req.method==='POST')return adminBroadcastReorder(req,env);
+  {const m=url.pathname.match(new RegExp('^/api/admin/broadcast/items/([0-9a-f-]+)/(skip|remove)$','i'));if(m&&req.method==='POST')return adminBroadcastItemCommand(req,env,m[1],m[2]);}
   if(url.pathname==='/api/library/provider/status'&&req.method==='GET')return providerStatus(req,env);
   if(url.pathname==='/api/library/provider/search'&&req.method==='GET')return providerSearch(req,env,url);
   if(url.pathname==='/api/library/provider/lyrics'&&req.method==='GET')return providerLyrics(req,env,url);

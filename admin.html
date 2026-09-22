@@ -21,9 +21,10 @@ input,select{width:100%;font:inherit;color:var(--ink);background:#fbf7f0;border:
 .name{font:400 16px/1.15 Georgia,serif}.sub{display:block;color:var(--muted);font-size:10px;margin-top:4px;max-width:280px;overflow:hidden;text-overflow:ellipsis}.pill{display:inline-flex;align-items:center;border:1px solid rgba(32,28,23,.18);border-radius:999px;padding:5px 8px;font-size:9px;white-space:nowrap}.pill.good{color:var(--good);border-color:rgba(49,95,69,.35)}.pill.warn{color:var(--warn);border-color:rgba(138,90,33,.35)}.pill.danger{color:var(--danger);border-color:rgba(135,63,63,.35)}
 .empty{padding:34px;text-align:center;color:var(--muted)}.pager{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px}.pager button,.close{font:inherit;font-size:11px;border:1px solid var(--ink);background:transparent;color:var(--ink);padding:9px 12px;cursor:pointer}.pager button:disabled{opacity:.35;cursor:not-allowed}
 dialog{width:min(620px,calc(100vw - 24px));border:0;padding:0;background:var(--card);color:var(--ink);box-shadow:0 30px 90px rgba(0,0,0,.35)}dialog::backdrop{background:rgba(20,17,13,.55);backdrop-filter:blur(7px)}.detail{padding:24px}.detailhead{display:flex;justify-content:space-between;gap:16px}.detail h2{font:400 30px/1 Georgia,serif;margin:4px 0 20px}.detailgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.detailrow{padding:12px 0;border-top:1px solid rgba(32,28,23,.09)}.detailrow span{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}.detailrow b{font-weight:500;overflow-wrap:anywhere}
+.broadcast{margin:28px 0;border:1px solid rgba(32,28,23,.12);background:var(--card)}.broadcasthead{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:18px;border-bottom:1px solid rgba(32,28,23,.1)}.broadcasthead h2{font:400 28px/1 Georgia,serif;margin:5px 0 0}.broadcastactions{display:flex;gap:8px;flex-wrap:wrap}.action{font:inherit;font-size:11px;border:1px solid var(--ink);background:transparent;color:var(--ink);padding:9px 12px;cursor:pointer}.action.primary{background:var(--ink);color:var(--card)}.action.danger{color:var(--danger);border-color:rgba(135,63,63,.55)}.action:disabled{opacity:.35;cursor:not-allowed}.broadcaststatus{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border-bottom:1px solid rgba(32,28,23,.1)}.broadcaststat{padding:14px 18px;border-right:1px solid rgba(32,28,23,.08)}.broadcaststat:last-child{border-right:0}.broadcaststat span{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}.broadcaststat b{font-weight:500}.broadcastlog{padding:14px 18px;color:var(--muted);font-size:11px;line-height:1.55;border-top:1px solid rgba(32,28,23,.08)}.broadcastlog summary{cursor:pointer;color:var(--ink)}.rowactions{display:flex;gap:6px}.rowactions button{font:inherit;font-size:9px;border:1px solid var(--line);background:transparent;padding:5px 7px;cursor:pointer}.rowactions button:disabled{opacity:.35;cursor:not-allowed}
 .gate{max-width:620px;margin-top:40px;padding:24px;border:1px solid rgba(32,28,23,.12);background:var(--card)}.gate h2{font:400 28px/1 Georgia,serif;margin:4px 0 14px}.status{font-size:12px;color:var(--muted)}[hidden]{display:none!important}
 @media(max-width:1050px){.metrics{grid-template-columns:repeat(3,1fr)}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}}
-@media(max-width:640px){.top{padding:18px}.topnav a:first-child{display:none}main{width:min(100% - 24px,1420px);padding-top:32px}.metrics{grid-template-columns:1fr 1fr}.toolbar{grid-template-columns:1fr}.toolbar input{grid-column:auto}.detailgrid{grid-template-columns:1fr}}
+@media(max-width:640px){.broadcaststatus{grid-template-columns:1fr 1fr}.broadcasthead{flex-direction:column}.top{padding:18px}.topnav a:first-child{display:none}main{width:min(100% - 24px,1420px);padding-top:32px}.metrics{grid-template-columns:1fr 1fr}.toolbar{grid-template-columns:1fr}.toolbar input{grid-column:auto}.detailgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -44,6 +45,27 @@ dialog{width:min(620px,calc(100vw - 24px));border:0;padding:0;background:var(--c
 
 <section id="console" hidden>
   <div id="adminNotice" class="notice"></div>
+  <section class="broadcast" aria-labelledby="broadcastTitle">
+    <div class="broadcasthead">
+      <div><div class="eyebrow">Broadcast / AI-DJ mode</div><h2 id="broadcastTitle">Shared station director</h2></div>
+      <div class="broadcastactions"><button class="action primary" id="broadcastStart">Start 12-track broadcast</button><button class="action danger" id="broadcastStop">Stop broadcast</button></div>
+    </div>
+    <div class="broadcaststatus">
+      <div class="broadcaststat"><span>Status</span><b id="broadcastStatus">Checking…</b></div>
+      <div class="broadcaststat"><span>Now playing</span><b id="broadcastNow">—</b></div>
+      <div class="broadcaststat"><span>Next</span><b id="broadcastNext">—</b></div>
+      <div class="broadcaststat"><span>Planned</span><b id="broadcastPlanned">0</b></div>
+    </div>
+    <div id="broadcastMessage" class="notice" style="margin:14px 18px"></div>
+    <div class="tablewrap">
+      <table class="users">
+        <thead><tr><th>#</th><th>Track</th><th>Room</th><th>State</th><th>Actions</th></tr></thead>
+        <tbody id="broadcastRows"></tbody>
+      </table>
+      <div id="broadcastEmpty" class="empty">No broadcast lineup yet.</div>
+    </div>
+    <details class="broadcastlog"><summary>Recent broadcast audit events</summary><div id="broadcastEvents">No broadcast events yet.</div></details>
+  </section>
   <div class="metrics">
     <div class="metric"><div class="k">Registered users</div><div class="v" id="mUsers">—</div></div>
     <div class="metric"><div class="k">Verified emails</div><div class="v" id="mVerified">—</div></div>
