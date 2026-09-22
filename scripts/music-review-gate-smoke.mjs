@@ -14,9 +14,11 @@ const original=Buffer.from('afterlight-review-gate-fixture-v1');
 await writeFile(candidatePath,original);
 const sha256=createHash('sha256').update(original).digest('hex');
 
+const packageId='fixture-package-'+sha256.slice(0,16);
 const manifest={
   schemaVersion:1,
   status:'audition-only',
+  packageId,
   room:'rooftop',
   candidates:[{
     id:'rooftop-A',
@@ -33,8 +35,8 @@ const baseScores={roomFit:4,musicality:4,fatigueResistance:4,variation:4,product
 async function review(name,reviewer,{seconds=60,decision='shortlist',scores=baseScores}={}){
   const file=path.join(temp,name+'.json');
   await writeFile(file,JSON.stringify({
-    schemaVersion:1,room:'rooftop',reviewer,
-    reviews:[{candidateId:'rooftop-A',listenedSeconds:seconds,scores,decision,notes:''}]
+    schemaVersion:1,packageId,room:'rooftop',reviewer,
+    reviews:[{candidateId:'rooftop-A',candidateSha256:sha256,listenedSeconds:seconds,scores,decision,notes:''}]
   }));
   return file;
 }
@@ -78,10 +80,26 @@ try{
   result=run('production',[alice,alice]);
   expect('duplicate review paths must fail',result.status!==0,result);
 
+  const stale=path.join(temp,'stale.json');
+  await writeFile(stale,JSON.stringify({
+    schemaVersion:1,packageId:'older-package',room:'rooftop',reviewer:'Dora',
+    reviews:[{candidateId:'rooftop-A',candidateSha256:sha256,listenedSeconds:90,scores:baseScores,decision:'shortlist',notes:''}]
+  }));
+  result=run('beta',[stale]);
+  expect('review from older audition package must fail',result.status!==0,result);
+
+  const wrongHash=path.join(temp,'wrong-hash.json');
+  await writeFile(wrongHash,JSON.stringify({
+    schemaVersion:1,packageId,room:'rooftop',reviewer:'Evan',
+    reviews:[{candidateId:'rooftop-A',candidateSha256:'0'.repeat(64),listenedSeconds:90,scores:baseScores,decision:'shortlist',notes:''}]
+  }));
+  result=run('beta',[wrongHash]);
+  expect('review bound to a different candidate hash must fail',result.status!==0,result);
+
   const output=JSON.parse(run('beta',[alice]).stdout);
   expect('passing result should approve the expected candidate',output.approved?.[0]==='rooftop-A');
 
-  console.log('PASS Music Lab review gate: qualified shortlist, score bounds, unique reviewers, and SHA binding');
+  console.log('PASS Music Lab review gate: qualified shortlist, score bounds, unique reviewers, package binding, and SHA binding');
 }finally{
   await rm(temp,{recursive:true,force:true});
 }
