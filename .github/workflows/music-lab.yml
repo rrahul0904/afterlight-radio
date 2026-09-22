@@ -1,0 +1,73 @@
+name: Music Lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      room:
+        description: Room to audition
+        required: true
+        default: rooftop
+        type: choice
+        options:
+          - rooftop
+          - roma
+          - window
+          - long-way-home
+          - two-hundred
+          - one-more-log
+          - friends
+          - backroom
+          - headspace
+          - last-bus
+          - momentum
+          - between
+      count:
+        description: Candidate count
+        required: true
+        default: "4"
+        type: choice
+        options: ["2","3","4","5","6"]
+      bars:
+        description: Arrangement length in bars
+        required: true
+        default: "48"
+        type: choice
+        options: ["36","48","60","72"]
+
+permissions:
+  contents: read
+
+jobs:
+  audition-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify Music Lab scripts
+        run: npm run check:music-lab
+      - name: Generate long-form candidates
+        run: node scripts/music-lab.mjs --room "${{ inputs.room }}" --count "${{ inputs.count }}" --bars "${{ inputs.bars }}" --out ".music-lab/${{ inputs.room }}"
+      - name: Verify audition manifest
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const room=process.env.ROOM;
+          const manifest=JSON.parse(fs.readFileSync('.music-lab/'+room+'/manifest.json','utf8'));
+          if(manifest.status!=='audition-only'||manifest.room!==room)throw new Error('Music Lab manifest drift');
+          if(!manifest.candidates?.length||manifest.candidates.some(c=>!c.metrics?.technicalPass))throw new Error('A generated candidate failed technical QC');
+          if(manifest.candidates.some(c=>!String(c.rights||'').startsWith('first-party')))throw new Error('Candidate provenance is not first-party');
+          console.log('Audition package certified for',room,manifest.candidates.length,'candidates');
+          NODE
+        env:
+          ROOM: ${{ inputs.room }}
+      - name: Upload blind listening package
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-music-lab-${{ inputs.room }}-${{ github.sha }}
+          path: .music-lab/${{ inputs.room }}/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 1

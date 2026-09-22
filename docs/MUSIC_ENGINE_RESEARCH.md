@@ -88,3 +88,22 @@ Provider lyrics come only from the authenticated user's configured self-hosted l
 ACE-Step / prompt-to-music / stems / timeline editing / regenerate / repaint / extend belong to **Open Music Studio**, the separate Silens-derived creation product. They should not be added to Afterlight's player merely to increase feature count.
 
 The audited tracker still has no verified owned Open Music Studio repository, so creation-studio implementation remains a repository-reconciliation task rather than an Afterlight subfolder.
+
+
+## September 21, 2026 — catalog-production course correction
+
+The current engine is retained as an owned deterministic composition source, but generator output is no longer treated as automatically catalog-worthy.
+
+Current public product patterns reinforce this separation. Mubert exposes duration/output-mode choices including long-form mixes, while current ACE-Step 1.5 emphasizes long-form planning and editing rather than one-shot acceptance. Afterlight adopts only the product-process lesson: generate several controlled candidates, listen, reject/rework/shortlist, and promote only cleared masters.
+
+The new Music Lab therefore adds:
+
+- longer 24–96 bar audition renders without changing the stable production build;
+- multiple deterministic seeds per room;
+- blind candidate labels to reduce expectation bias;
+- technical metrics and provenance;
+- actual listening-time capture;
+- human scores for room fit, musicality, fatigue, variation and polish;
+- explicit beta vs public-production thresholds.
+
+No external model, weights, dataset or generated third-party audio is bundled into Afterlight by this change.

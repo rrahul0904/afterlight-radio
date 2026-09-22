@@ -89,6 +89,31 @@ function sectionFor(track,bar){
   return plans[track].find(section=>bar<section.until)||plans[track].at(-1);
 }
 
+function longFormSectionFor(track,bar,bars){
+  const progress=(bar+.5)/Math.max(1,bars);
+  const plans={
+    1:[
+      {name:'intro',until:.12,pad:.58,keys:.28,pluck:.08,bass:.30,drums:.03,lead:.00,air:1.12},
+      {name:'settle',until:.34,pad:.84,keys:.62,pluck:.28,bass:.68,drums:.34,lead:.14,air:.98},
+      {name:'bloom',until:.76,pad:1.00,keys:.90,pluck:.62,bass:.92,drums:.74,lead:.44,air:.82},
+      {name:'release',until:1,pad:.76,keys:.52,pluck:.18,bass:.54,drums:.18,lead:.12,air:1.10}
+    ],
+    2:[
+      {name:'intro',until:.10,pad:.72,keys:.42,pluck:.24,bass:.50,drums:.12,lead:.08,air:.94},
+      {name:'lift',until:.38,pad:.94,keys:.76,pluck:.68,bass:.88,drums:.72,lead:.36,air:.76},
+      {name:'drive',until:.80,pad:1.00,keys:.72,pluck:.90,bass:1.00,drums:1.00,lead:.54,air:.68},
+      {name:'release',until:1,pad:.78,keys:.46,pluck:.34,bass:.62,drums:.28,lead:.16,air:1.00}
+    ],
+    3:[
+      {name:'intro',until:.18,pad:.88,keys:.56,pluck:.08,bass:.34,drums:.02,lead:.10,air:1.18},
+      {name:'drift',until:.58,pad:1.00,keys:.82,pluck:.24,bass:.56,drums:.16,lead:.30,air:1.04},
+      {name:'resolve',until:.82,pad:.92,keys:.68,pluck:.18,bass:.50,drums:.10,lead:.22,air:1.10},
+      {name:'outro',until:1,pad:.68,keys:.38,pluck:.04,bass:.24,drums:.00,lead:.06,air:1.22}
+    ]
+  };
+  return plans[track].find(section=>progress<section.until)||plans[track].at(-1);
+}
+
 function transformMotif(base,variant){
   let out=[...base];
   if(variant&1)out=out.map((v,i)=>i%2?v+1:v);
@@ -98,14 +123,14 @@ function transformMotif(base,variant){
   return out;
 }
 
-function buildScore(room,track){
-  const rand=rng(hash(room.slug+':score:v3:'+track)),bars=[];
+function buildScore(room,track,{bars:BARSOverride=BARS,seedSuffix='',longForm=false}={}){
+  const rand=rng(hash(room.slug+':score:v3:'+track+seedSuffix)),bars=[];
   let degree=0;
-  const motif=motifs[(hash(room.slug)+track)%motifs.length];
-  for(let bar=0;bar<BARS;bar++){
+  const motif=motifs[(hash(room.slug+seedSuffix)+track)%motifs.length];
+  for(let bar=0;bar<BARSOverride;bar++){
     if(bar>0)degree=weighted(chordTransitions[degree]||chordTransitions[0],rand);
-    if(bar===BARS-1)degree=0;
-    const section=sectionFor(track,bar),variant=(bar+track+(hash(room.slug)%7))&15,seq=transformMotif(motif,variant);
+    if(bar===BARSOverride-1)degree=0;
+    const section=longForm?longFormSectionFor(track,bar,BARSOverride):sectionFor(track,bar),variant=(bar+track+(hash(room.slug+seedSuffix)%7))&15,seq=transformMotif(motif,variant);
     const eighths=Array.from({length:8},(_,step)=>({
       degree:degree+seq[step],
       velocity:.72+rand()*.28,
@@ -121,13 +146,13 @@ function buildScore(room,track){
   return bars;
 }
 
-function synth(room,track){
-  const beat=60/room.bpm,barDur=beat*4,duration=barDur*BARS,N=Math.floor(SR*duration);
-  const dryL=new Float32Array(N),dryR=new Float32Array(N),score=buildScore(room,track),rand=rng(hash(room.slug+':audio:v3:'+track));
+function synth(room,track,{bars=BARS,seedSuffix='',longForm=false}={}){
+  const beat=60/room.bpm,barDur=beat*4,duration=barDur*bars,N=Math.floor(SR*duration);
+  const dryL=new Float32Array(N),dryR=new Float32Array(N),score=buildScore(room,track,{bars,seedSuffix,longForm}),rand=rng(hash(room.slug+':audio:v3:'+track+seedSuffix));
   let airLP=0,airSlow=0,crackle=0;
 
   for(let n=0;n<N;n++){
-    const x=n/SR,bar=Math.min(BARS-1,Math.floor(x/barDur)),barLocal=x-bar*barDur;
+    const x=n/SR,bar=Math.min(bars-1,Math.floor(x/barDur)),barLocal=x-bar*barDur;
     const beatFloat=barLocal/beat,beatIndex=Math.floor(beatFloat),beatPhase=beatFloat-beatIndex;
     const spec=score[bar],section=spec.section,degree=spec.degree,acc=[0,0];
     const wow=.0017*sinP(.13*x)+.0010*sinP(.071*x+1.7/TAU)+.0005*sinP(.31*x+.3/TAU);
@@ -162,7 +187,7 @@ function synth(room,track){
     // Bass alternates root/fifth, then approaches the next harmony before a transition.
     const bassStep=beat*2,bs=Math.floor(barLocal/bassStep),bl=barLocal-bs*bassStep;
     let bassDegree=degree-7+(bs%2?4:0);
-    if(barLocal>barDur-beat*.35&&bar<BARS-1)bassDegree=score[bar+1].degree-8;
+    if(barLocal>barDur-beat*.35&&bar<bars-1)bassDegree=score[bar+1].degree-8;
     const bassF=noteFromDegree(room,bassDegree,0),bassEnv=envAD(bl,.006,.34+.18*room.warm);
     addStereo(acc,(sinP(bassF*x)+.13*sinP(bassF*2*x))*bassEnv*(.039+.024*room.warm)*section.bass,0);
 
@@ -263,6 +288,37 @@ export async function generateAudio(out){
     tracks:manifest
   },null,2)+'\n');
   return manifest.length;
+}
+
+export const musicRooms=rooms.map(room=>Object.freeze({...room,tracks:[...room.tracks]}));
+
+export function renderMusicCandidate({roomSlug,seed='candidate-01',trackRole=1,bars=48}={}){
+  const room=rooms.find(entry=>entry.slug===roomSlug);
+  if(!room)throw new Error('Unknown music room: '+roomSlug);
+  const safeRole=Math.max(1,Math.min(3,Number(trackRole)||1));
+  const safeBars=Math.max(24,Math.min(96,Math.round(Number(bars)||48)));
+  const safeSeed=String(seed||'candidate-01').trim().slice(0,80).replace(/[^A-Za-z0-9._-]+/g,'-')||'candidate-01';
+  const rendered=synth(room,safeRole,{bars:safeBars,seedSuffix:':candidate:'+safeSeed,longForm:true});
+  return {
+    ...rendered,
+    metadata:{
+      room:room.slug,
+      roomName:room.name,
+      seed:safeSeed,
+      trackRole:safeRole,
+      bpm:room.bpm,
+      key:noteLabel(room),
+      style:room.style,
+      bars:safeBars,
+      durationSeconds:Number(rendered.duration.toFixed(2)),
+      sampleRate:SR,
+      channels:2,
+      format:'pcm_s16le',
+      generator:'afterlight-composition-engine-v3-lab',
+      model:'authored-elements-plus-deterministic-long-form',
+      rights:'first-party procedural candidate; not production-approved'
+    }
+  };
 }
 
 export const audioRoomSlugs=rooms.map(room=>room.slug);
