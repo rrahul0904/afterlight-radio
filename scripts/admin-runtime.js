@@ -42,6 +42,7 @@
     $('broadcastStart').disabled=status==='live'||state.broadcastUnavailable;
     $('broadcastStop').disabled=status!=='live'||state.broadcastUnavailable;
     const rows=$('broadcastRows');
+    const eligible=state.lineup.filter(item=>['planned','ready'].includes(item.state)),eligibleIds=eligible.map(item=>item.id),eligiblePos=new Map(eligibleIds.map((id,index)=>[id,index]));
     rows.replaceChildren(...state.lineup.map(item=>{
       const tr=document.createElement('tr');
       const ordinal=document.createElement('td');ordinal.textContent=String(Number(item.ordinal)+1);
@@ -49,6 +50,12 @@
       const room=document.createElement('td');room.textContent=item.source_room||'—';
       const statusCell=document.createElement('td');const pill=document.createElement('span');pill.className='pill '+(item.state==='airing'?'good':'');pill.textContent=item.state;statusCell.appendChild(pill);
       const actions=document.createElement('td');const wrap=document.createElement('div');wrap.className='rowactions';
+      const pos=eligiblePos.get(item.id);
+      for(const [label,delta] of [['↑',-1],['↓',1]]){
+        const move=document.createElement('button');move.type='button';move.textContent=label;move.title=delta<0?'Move earlier':'Move later';
+        move.disabled=pos===undefined||pos+delta<0||pos+delta>=eligibleIds.length;
+        move.addEventListener('click',()=>runReorder(item.id,delta));wrap.appendChild(move);
+      }
       for(const action of ['skip','remove']){
         const button=document.createElement('button');button.type='button';button.textContent=action==='skip'?'Skip':'Remove';
         button.disabled=!['planned','ready'].includes(item.state);
@@ -86,6 +93,16 @@
   async function runItemCommand(itemId,action){
     try{await command('/api/admin/broadcast/items/'+encodeURIComponent(itemId)+'/'+action);await loadBroadcast()}
     catch(error){$('broadcastMessage').textContent=error.message}
+  }
+  async function runReorder(itemId,delta){
+    const ids=state.lineup.filter(item=>['planned','ready'].includes(item.state)).map(item=>item.id),index=ids.indexOf(itemId),next=index+delta;
+    if(!state.broadcast?.id||index<0||next<0||next>=ids.length)return;
+    [ids[index],ids[next]]=[ids[next],ids[index]];
+    try{
+      const result=await command('/api/admin/broadcast/reorder',{broadcast_id:state.broadcast.id,ordered_item_ids:ids});
+      if(result.partial)$('broadcastMessage').textContent='The lineup changed concurrently; refreshed to the committed order.';
+      await loadBroadcast();
+    }catch(error){$('broadcastMessage').textContent=error.message}
   }
 
   function query(){
