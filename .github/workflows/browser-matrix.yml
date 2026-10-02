@@ -13,6 +13,9 @@ on:
       - 'scripts/library-browser.js'
       - 'scripts/audio-library.mjs'
       - 'scripts/preview-server.mjs'
+      - 'scripts/visual-view-runtime.js'
+      - 'scripts/visual-view-check.mjs'
+      - 'scripts/visual-view-browser-smoke.mjs'
       - 'package.json'
       - 'scripts/browser-smoke.mjs'
       - '.github/workflows/browser-matrix.yml'
@@ -35,6 +38,9 @@ on:
       - 'scripts/product-quality-check.mjs'
       - 'scripts/test-server.mjs'
       - 'scripts/browser-smoke.mjs'
+      - 'scripts/visual-view-runtime.js'
+      - 'scripts/visual-view-check.mjs'
+      - 'scripts/visual-view-browser-smoke.mjs'
       - 'package.json'
       - '.github/workflows/browser-matrix.yml'
 
@@ -67,6 +73,8 @@ jobs:
           exit 1
       - name: Exercise current-build browsers
         run: node scripts/browser-smoke.mjs
+      - name: Verify visual-view playback continuity
+        run: node scripts/visual-view-browser-smoke.mjs
       - name: Upload visual review screenshots
         if: always()
         uses: actions/upload-artifact@v4
