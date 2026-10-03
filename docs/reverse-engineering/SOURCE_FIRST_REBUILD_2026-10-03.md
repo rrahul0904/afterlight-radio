@@ -26,6 +26,8 @@ Source-backed lessons from the creator and comments:
 - Rooms gained day/evening/night artwork, optional ambience, multiple mixes, progress UI, exact room+song share links, mobile improvements and keyboard shortcuts.
 - TunedAway later separated **Another view** from music state so visual changes do not interrupt the current song.
 
+Current-policy correction: the historical YouTube implementation is source evidence, not permission to reproduce a hidden audio engine today. Current official-player constraints are documented in `YOUTUBE_PROVIDER_POLICY_2026-10-03.md`; the rebuild preserves the room-specific external-catalog idea without hiding, obscuring or extracting audio from a provider player.
+
 ### Radio donor — deadair
 
 Product/source:
@@ -67,9 +69,10 @@ Only after this works should it become:
 4. The scene has its own music pool/mix identity.
 5. Next/previous/shuffle never escape the room's pool.
 6. `Another view` changes only the visual state.
-7. Optional ambience is independent of music.
-8. Share restores the exact room + view + track identity where the provider allows it.
-9. No dashboard, account or subscription UI interrupts the listening surface.
+7. Visual state is explicit Day / Evening / Night and states that music keeps playing.
+8. Optional ambience is independent of music.
+9. Share restores the exact room + view + track identity where the provider allows it.
+10. No dashboard, account or subscription UI interrupts the listening surface.
 
 ## Golden journey — Phase 2 radio
 
@@ -120,13 +123,34 @@ Those features may remain elsewhere but cannot sit between scene selection and l
 
 ## Music strategy
 
-The rebuild must support a **provider-neutral room music pool**:
+See `MUSIC_SOURCE_DECISION_2026-10-03.md`.
 
-- `youtube` adapter for official IFrame embedding where permitted;
-- `owned` adapter for cleared/studio-master audio;
-- later self-hosted provider adapters behind the same contract.
+The production path is now deliberately split:
+
+- **owned / explicitly cleared masters** for the primary low-distraction experience;
+- provider experiments only where current terms and UX constraints are compatible.
+
+The curated-source intake gate rejects a cleared track unless provenance, rights evidence, commercial use, streaming use, territory and ambience/presenter mixing permissions are explicit. A public API entry is not itself treated as proof of commercial rights.
 
 Do not silently substitute a tiny generated catalog and call it parity.
+
+## Automated verification
+
+Latest verified code-bearing SHA: `73710160ac5e2d2e60c148f69c1071f0f1612604`.
+
+- GitHub Actions CI run `37150834607`: **PASS**.
+- Browser Matrix run `37150834581`: **PASS**.
+- The Browser Matrix explicitly runs the source-first `/rebuild/` smoke in Chromium and WebKit/mobile-sized conditions.
+- It checks flagship-room presence, room-local track selection, exact room/track/view state, Day/Evening/Night visual continuity, `Another view` preserving the audio source, and absence of Sign in / Upgrade / Dashboard leakage in the listening surface.
+
+Vercel Preview run `37150834616`: **BLOCKED BEFORE DEPLOYMENT**.
+- exact PR SHA checkout passed;
+- `Require preview authorization` failed;
+- build, deploy and hosted verification were skipped because `VERCEL_TOKEN` is not configured.
+
+This is an authorization blocker, not evidence of an application build failure. There is no exact-head hosted Preview claim for this rebuild yet.
+
+The current branch head may include documentation-only commits after the verified code-bearing SHA. Any later code change must receive fresh CI/browser evidence before the verified SHA moves forward.
 
 ## Quality gates
 
@@ -136,3 +160,8 @@ Do not silently substitute a tiny generated catalog and call it parity.
 - `Another view` never changes or restarts the current track.
 - No unexpected silence on provider failure; fallback is explicit and recoverable.
 - Radio/presenter claims remain disabled until the presenter and playout behavior pass their own evidence gates.
+- Follow `docs/uat/SOURCE_FIRST_LISTENING_UAT.md` before production promotion.
+
+## Truthful status
+
+Draft, unmerged, and production unchanged. The source contract, rights intake boundary and local browser behavior are verified. The core product is **not yet proven** because real catalog depth, human listening quality and hosted exact-head Preview verification remain open.
