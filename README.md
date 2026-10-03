@@ -1,60 +1,51 @@
-# Afterlight
+# Afterlight Radio
 
-**Somewhere else, for a while.**
+Afterlight is a place-based listening project. The current repository contains both the existing product and an isolated source-first rebuild candidate.
 
-Afterlight is a premium consumer listening product: twelve illustrated places with original music and ambience for working, reading, unwinding and sleep.
+## Source-first rebuild
 
-## Production architecture
+The focused rebuild lives at `/rebuild/` on branch `rebuild/source-first-afterlight` and is intentionally narrower than the existing product:
 
-- **Vercel** is the canonical production frontend at `https://afterlight-radio.vercel.app`
-- **Neon Function** `afterlightapi` is the production API backend
-- dedicated Neon Postgres `afterlight` database in `us-east-2`
-- managed Neon Auth, proxied first-party through `/api/auth/*`
-- 12 clean room routes
-- 36 build-generated original stereo WAV tracks (3 per room) rendered by Composition Engine v3 with distinct arrangements and manifest provenance
-- cross-device saved places and listening preferences
-- Stripe-hosted monthly and annual checkout links
-- verified Stripe webhooks drive premium entitlements and cancellation state
-- first-party analytics, client-error capture and persisted support requests
-- optional disabled-by-default server-side Navidrome/Subsonic library adapter
-- Privacy, Terms, Support, Account and protected Admin portal surfaces
-- GitHub Actions CI, production verification, account lifecycle and browser-matrix checks
+- four flagship rooms: Rooftop, Window Seat, Headspace, Last Bus;
+- room-first listening instead of account/dashboard-first navigation;
+- room-local music identity;
+- Day / Evening / Night visual states;
+- `Another view` preserves the current music source;
+- independent ambience;
+- exact room + track + view sharing;
+- no account/admin/focus/library/subscription/visualizer UI in the first-session path.
 
-Cloudflare support remains checked in as an **optional manual mirror**; it is not the production release target.
+The current generated WAVs are temporary demo audio. They are not source parity and are not proof of listening quality.
 
-## Product model
+Start with:
 
-Free: Rooftop, Window Seat and Pizzeria Roma.
+- `docs/reverse-engineering/SOURCE_FIRST_REBUILD_2026-10-03.md`
+- `docs/reverse-engineering/SOURCE_EVIDENCE_MATRIX_2026-10-03.md`
+- `docs/reverse-engineering/MUSIC_SOURCE_DECISION_2026-10-03.md`
+- `docs/reverse-engineering/YOUTUBE_PROVIDER_POLICY_2026-10-03.md`
+- `docs/uat/SOURCE_FIRST_LISTENING_UAT.md`
 
-Afterlight+: **$2.99/month** or **$19.99 founding annual**.
+## Verification
 
-The browser never decides whether a customer is premium. Premium access comes from the server-side subscription record synchronized by verified Stripe webhook events.
+The latest verified code-bearing rebuild SHA is recorded in the source-first rebuild document. Current CI includes:
 
-## Verified production behavior
+- source-first rebuild contract checks;
+- curated music-source/rights intake checks;
+- existing repository quality checks;
+- Chromium + WebKit browser smoke for `/rebuild/`.
 
-- homepage, Rooftop, account portal and WAV delivery
-- Auth transport and production signup/session/logout
-- cross-device preference writes and reads
-- Stripe webhook readiness
-- zero-dollar live subscription lifecycle: `active` entitlement reached Neon, cancellation propagated back as `canceled`
-- synthetic production identities are removed after verification
-- admin directory reads the canonical Neon Auth user table rather than only app profile rows
+A green build does not establish music quality. Promotion requires a cleared Stage-A catalog and human listening evidence.
 
-## Local
+## Local development
 
 ```bash
 npm install
 npm test
-npm run serve
+npm start
 ```
 
-## Release operations
+The generated static output is written under `public/`.
 
-See:
+## Deployment status
 
-- [docs/MVP_STATUS.md](docs/MVP_STATUS.md)
-- [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)
-- [docs/MUSIC_PIPELINE.md](docs/MUSIC_PIPELINE.md)
-- [docs/ENVIRONMENT.md#admin-portal](docs/ENVIRONMENT.md#admin-portal)
-
-The optional Cloudflare mirror can be invoked manually from `.github/workflows/deploy-cloudflare.yml` after Cloudflare credentials are configured.
+Production is unchanged. The source-first PR remains draft/unmerged. The dedicated GitHub Vercel Preview workflow also requires the repository's `VERCEL_TOKEN`; if that secret is absent, the workflow intentionally stops before build/deploy and no hosted exact-head claim should be made.
