@@ -68,6 +68,44 @@ Audius explicitly provides APIs/SDKs for third-party apps to query and stream tr
 
 Verdict: **strong technical experiment candidate; rights-review pending before production promotion.**
 
+## Catalog acquisition sequence
+
+Do not jump from 12 demo files to a giant catalog. Prove room identity in controlled stages.
+
+### Stage A — audition pool
+
+Target **8–12 cleared/owned tracks per flagship room** (32–48 total) before the first serious listening UAT.
+
+For every room:
+- one coherent primary mix identity;
+- no duplicate recording across flagship rooms;
+- no immediate repeat;
+- enough duration for a 15-minute review without cycling the same recording;
+- every external/cleared item passes the rights-receipt intake gate.
+
+This stage exists to answer: *does each room actually sound like a different place?*
+
+### Stage B — long-session baseline
+
+Only after Stage A human listening passes, expand toward **30+ cleared tracks per promoted room** or an equivalent provider-backed pool that avoids obvious repetition in a normal work/read session.
+
+This stage exists to answer: *would somebody leave it playing?*
+
+### Stage C — source-parity depth
+
+Do not target Enikq's reported ~29,800-song scale until the four flagship rooms have demonstrated repeat usage. Catalog scale is a response to validated listening demand, not a substitute for it.
+
+## Room acquisition briefs
+
+The first catalog should be curated against these briefs, not against generic genres:
+
+- **Rooftop — sunset soul:** warm, social, unhurried, melodic; avoid aggressive vocals/club energy.
+- **Window Seat — rainy jazz:** reflective, nocturnal transit energy; sparse jazz/keys, low distraction.
+- **Headspace — focus piano:** minimal, mostly instrumental, stable dynamics, low novelty/fatigue.
+- **Last Bus — night ambient:** sparse, dark-but-safe, slow motion, minimal percussion, no jump-scare dynamics.
+
+A track that is individually good can still fail the room-fit gate.
+
 ## Production catalog receipt
 
 Every promoted external/cleared track must record at least:
