@@ -5,7 +5,10 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'rebuild/**'
       - 'scripts/build.mjs'
+      - 'scripts/source-first-rebuild-check.mjs'
+      - 'scripts/rebuild-browser-smoke.mjs'
       - 'scripts/focus-room.js'
       - 'scripts/library-runtime.js'
       - 'scripts/offline-worker.js'
@@ -20,9 +23,12 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'rebuild/**'
       - 'account.html'
       - 'legal/**'
       - 'scripts/build.mjs'
+      - 'scripts/source-first-rebuild-check.mjs'
+      - 'scripts/rebuild-browser-smoke.mjs'
       - 'scripts/runtime-enhancements.js'
       - 'scripts/focus-room.js'
       - 'scripts/library-runtime.js'
@@ -67,6 +73,8 @@ jobs:
           exit 1
       - name: Exercise current-build browsers
         run: node scripts/browser-smoke.mjs
+      - name: Exercise source-first rebuild browsers
+        run: node scripts/rebuild-browser-smoke.mjs
       - name: Upload visual review screenshots
         if: always()
         uses: actions/upload-artifact@v4
