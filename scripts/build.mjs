@@ -76,25 +76,30 @@ const mastered=await masterGeneratedCatalog(out,slugs);
 
 if(process.env.AFTERLIGHT_AUDIO_LAB==='1'){
   const flagship=['rooftop','window','headspace','last-bus'];
+  const auditionBars=32;
+  const minimumListeningSecondsPerVersion=90;
   const labRoot=path.join(out,'audio-lab');
   await mkdir(labRoot,{recursive:true});
   const labHtml=await readFile(path.join(root,'audio-lab.html'),'utf8');
   await writeFile(path.join(labRoot,'index.html'),labHtml);
   const rooms=[];
   for(const room of flagship){
-    const pair=createBlindPair({room,seed:'flagship-a',role:1,bars:24});
+    const pair=createBlindPair({room,seed:'flagship-a',role:1,bars:auditionBars});
     const roomDir=path.join(labRoot,'audio',room);
     await mkdir(roomDir,{recursive:true});
     await writeFile(path.join(roomDir,'A.wav'),pair.A);
     await writeFile(path.join(roomDir,'B.wav'),pair.B);
     const profile=musicRooms.find(entry=>entry.slug===room);
-    const seconds=profile?24*4*60/profile.bpm:0;
+    const seconds=profile?auditionBars*4*60/profile.bpm:0;
+    if(seconds<minimumListeningSecondsPerVersion)throw new Error(`${room} Audio Lab candidate is shorter than the ${minimumListeningSecondsPerVersion}s review minimum`);
     rooms.push({
       pairId:pair.pairId,
       room,
       roomName:profile?.name||room,
       files:{A:`/audio-lab/audio/${room}/A.wav`,B:`/audio-lab/audio/${room}/B.wav`},
       hashes:pair.publicManifest.hashes,
+      durationSeconds:Number(seconds.toFixed(2)),
+      minimumListeningSecondsPerVersion,
       durationLabel:`about ${Math.max(1,Math.round(seconds/60))} min each`,
       blinded:true
     });
@@ -104,6 +109,8 @@ if(process.env.AFTERLIGHT_AUDIO_LAB==='1'){
     releaseSha:release,
     status:'audition-only',
     blinded:true,
+    candidateSeed:'flagship-a',
+    candidateBars:auditionBars,
     rooms,
     privacy:'Review state stays in browser localStorage unless the reviewer explicitly exports JSON.',
     releaseBoundary:'Audio Lab evidence does not publish or replace production audio.'
