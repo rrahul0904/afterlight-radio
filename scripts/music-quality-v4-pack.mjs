@@ -17,12 +17,13 @@ function sanitize(value){
   return String(value).trim().slice(0,80).replace(/[^A-Za-z0-9._-]+/g,'-')||'candidate';
 }
 
-function makeReviewTemplate({pairId,room,seed,role,bars}){
+function makeReviewTemplate({pairId,room,seed,role,bars,publicManifest}){
   return {
-    version:1,
+    version:2,
     pairId,
     room,
     candidate:{seed,role,bars},
+    exactHashes:{A:publicManifest.hashes.A,B:publicManifest.hashes.B},
     reviewerId:'',
     minimumListeningSecondsPerVersion:90,
     listenedSeconds:{A:0,B:0},
@@ -33,7 +34,7 @@ function makeReviewTemplate({pairId,room,seed,role,bars}){
       B:Object.fromEntries(REVIEW_FIELDS.map(field=>[field,null]))
     },
     comments:{A:'',B:'',comparison:''},
-    instructions:'Listen to A and B without opening the private truth map. Score each 1-5. preferred must be A, B, or tie; decision must be shortlist, rework, or reject.'
+    instructions:'Listen to A and B without opening the private truth map. Score each 1-5. preferred must be A, B, or tie; decision must be shortlist, rework, or reject. Do not edit pairId or exactHashes.'
   };
 }
 
