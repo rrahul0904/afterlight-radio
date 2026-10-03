@@ -1,6 +1,7 @@
 const catalog=window.AFTERLIGHT_REBUILD_CATALOG;
 if(!catalog?.rooms)throw new Error('Afterlight rebuild catalog is missing');
 const rooms=catalog.rooms;
+const viewStates=[{phase:'evening',label:'Evening view'},{phase:'night',label:'Night view'},{phase:'day',label:'Day view'}];
 
 const app=document.querySelector('#app');
 const audio=document.querySelector('#audio');
@@ -13,6 +14,7 @@ const playButton=document.querySelector('#play');
 const primaryPlay=document.querySelector('#primary-play');
 const vinyl=document.querySelector('#vinyl');
 const ambienceButton=document.querySelector('#ambience');
+const viewState=document.querySelector('#view-state');
 let room='rooftop',track=0,view=0;
 let ambience=null;
 let activeProvider='owned';
@@ -32,14 +34,16 @@ function setProviderSource(nextTrack){
   throw new Error(`Provider ${nextTrack.provider} is not enabled in this clean-room preview`);
 }
 function render({preserveAudio=false}={}){
-  const info=roomInfo(),selected=trackInfo();
+  const info=roomInfo(),selected=trackInfo(),visual=viewStates[view];
   app.dataset.room=room;
   app.dataset.view=String(view);
+  app.dataset.phase=visual.phase;
   kicker.textContent=info.label;
   title.textContent=info.title;
   copy.textContent=info.copy;
   trackTitle.textContent=selected.title;
   trackSubtitle.textContent=`${info.title.replace(/[.]$/,'')} · ${selected.provider==='owned'?'temporary cleared/owned demo source':selected.provider}`;
+  viewState.textContent=`${visual.label} · music keeps playing`;
   document.querySelectorAll('[data-room-choice]').forEach(button=>button.classList.toggle('active',button.dataset.roomChoice===room));
   if(!preserveAudio)setProviderSource(selected);
   syncUrl();
@@ -53,7 +57,7 @@ function pause(){if(activeProvider==='owned')audio.pause()}
 function updatePlayState(){const playing=activeProvider==='owned'&&!audio.paused;playButton.textContent=playing?'Ⅱ':'▶';playButton.setAttribute('aria-label',playing?'Pause':'Play');primaryPlay.textContent=playing?'Pause this place':'Play this place';vinyl.classList.toggle('spinning',playing)}
 function changeTrack(delta){const wasPlaying=activeProvider==='owned'&&!audio.paused;track=(track+delta+roomInfo().tracks.length)%roomInfo().tracks.length;render();if(wasPlaying)void play()}
 function changeRoom(next){if(!rooms[next]||next===room)return;const wasPlaying=activeProvider==='owned'&&!audio.paused;room=next;track=0;view=0;render();if(wasPlaying)void play()}
-function anotherView(){view=(view+1)%3;render({preserveAudio:true})}
+function anotherView(){view=(view+1)%viewStates.length;render({preserveAudio:true})}
 
 function toggleAmbience(){
   if(ambience){ambience.source.stop();ambience.context.close();ambience=null;ambienceButton.textContent='Ambience off';ambienceButton.setAttribute('aria-pressed','false');return}
@@ -64,7 +68,7 @@ function toggleAmbience(){
 }
 
 async function shareMoment(){
-  const url=new URL(location.href);url.searchParams.set('room',room);url.searchParams.set('track',String(track+1));url.searchParams.set('view',String(view));const text=`Afterlight — ${roomInfo().title} · ${trackInfo().title}`;
+  const url=new URL(location.href);url.searchParams.set('room',room);url.searchParams.set('track',String(track+1));url.searchParams.set('view',String(view));const text=`Afterlight — ${roomInfo().title} · ${trackInfo().title} · ${viewStates[view].label}`;
   if(navigator.share){await navigator.share({title:'Afterlight',text,url:url.toString()}).catch(()=>undefined);return}
   await navigator.clipboard?.writeText(url.toString());
 }
@@ -80,4 +84,4 @@ primaryPlay.addEventListener('click',()=>audio.paused?void play():pause());
 audio.addEventListener('play',updatePlayState);audio.addEventListener('pause',updatePlayState);audio.addEventListener('ended',()=>changeTrack(1));
 window.addEventListener('keydown',event=>{if(event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement)return;if(event.code==='Space'){event.preventDefault();audio.paused?void play():pause()}if(event.key==='ArrowRight')changeTrack(1);if(event.key==='ArrowLeft')changeTrack(-1);if(event.key.toLowerCase()==='v')anotherView()});
 
-const params=new URLSearchParams(location.search);if(rooms[params.get('room')])room=params.get('room');const requestedTrack=Number(params.get('track'));if(Number.isInteger(requestedTrack)&&requestedTrack>=1&&requestedTrack<=roomInfo().tracks.length)track=requestedTrack-1;const requestedView=Number(params.get('view'));if(Number.isInteger(requestedView)&&requestedView>=0&&requestedView<=2)view=requestedView;render();updatePlayState();
+const params=new URLSearchParams(location.search);if(rooms[params.get('room')])room=params.get('room');const requestedTrack=Number(params.get('track'));if(Number.isInteger(requestedTrack)&&requestedTrack>=1&&requestedTrack<=roomInfo().tracks.length)track=requestedTrack-1;const requestedView=Number(params.get('view'));if(Number.isInteger(requestedView)&&requestedView>=0&&requestedView<viewStates.length)view=requestedView;render();updatePlayState();
