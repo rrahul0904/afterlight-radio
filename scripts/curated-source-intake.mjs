@@ -18,7 +18,6 @@ export function validateCuratedSourceManifest(manifest,{allowFixture=false}={}){
     if(!allowedRooms.has(entry.room))errors.push(`${prefix}.room must be a flagship room`);
     if(!allowedProviders.has(entry.provider))errors.push(`${prefix}.provider must be owned, cleared, or youtube`);
     if(!entry.title?.trim())errors.push(`${prefix}.title is required`);
-    if(!entry.sourceUrl?.startsWith('https://'))errors.push(`${prefix}.sourceUrl must be https`);
     if(!entry.provenance?.trim())errors.push(`${prefix}.provenance is required`);
     if(!validDate(entry.checkedAt))errors.push(`${prefix}.checkedAt must be an ISO timestamp`);
     if(entry.hiddenPlayer===true)errors.push(`${prefix}.hiddenPlayer is forbidden`);
@@ -27,6 +26,7 @@ export function validateCuratedSourceManifest(manifest,{allowFixture=false}={}){
     if(entry.fixture===true&&!allowFixture)errors.push(`${prefix} is a test fixture and cannot be promoted`);
 
     if(entry.provider==='youtube'){
+      if(!entry.sourceUrl?.startsWith('https://'))errors.push(`${prefix}.sourceUrl must be https for YouTube`);
       if(!youtubeId.test(entry.videoId||''))errors.push(`${prefix}.videoId must be an 11-character YouTube id`);
       if(!entry.channel?.trim())errors.push(`${prefix}.channel is required for YouTube sources`);
       if(entry.embedAllowed!==true)errors.push(`${prefix}.embedAllowed must be explicitly true after an embed check`);
@@ -35,6 +35,7 @@ export function validateCuratedSourceManifest(manifest,{allowFixture=false}={}){
     }
 
     if(entry.provider==='cleared'){
+      if(!entry.sourceUrl?.startsWith('https://')&&!entry.sourceUrl?.startsWith('/audio/curated/'))errors.push(`${prefix}.sourceUrl must be https or /audio/curated/ for cleared music`);
       if(!entry.artist?.trim())errors.push(`${prefix}.artist is required for cleared music`);
       if(!entry.rightsEvidence?.trim())errors.push(`${prefix}.rightsEvidence is required for cleared music`);
       if(!entry.licenseScope?.trim())errors.push(`${prefix}.licenseScope is required for cleared music`);
@@ -47,8 +48,12 @@ export function validateCuratedSourceManifest(manifest,{allowFixture=false}={}){
       if(validDate(entry.expiresAt)&&validDate(entry.checkedAt)&&Date.parse(entry.expiresAt)<=Date.parse(entry.checkedAt))errors.push(`${prefix}.expiresAt must be after checkedAt`);
     }
 
-    if(entry.provider==='owned'&&entry.rightsEvidence!=null&&!entry.rightsEvidence.trim())errors.push(`${prefix}.rightsEvidence cannot be blank when supplied`);
+    if(entry.provider==='owned'){
+      if(!entry.sourceUrl?.startsWith('https://')&&!entry.sourceUrl?.startsWith('/audio/'))errors.push(`${prefix}.sourceUrl must be https or /audio/ for owned music`);
+      if(entry.rightsEvidence!=null&&!entry.rightsEvidence.trim())errors.push(`${prefix}.rightsEvidence cannot be blank when supplied`);
+    }
 
+    if(allowedProviders.has(entry.provider)&&!entry.sourceUrl)errors.push(`${prefix}.sourceUrl is required`);
     const id=entry.provider==='youtube'?`${entry.provider}:${entry.videoId}`:`${entry.provider}:${entry.sourceUrl}`;
     if(seen.has(id))errors.push(`${prefix} duplicates ${id}`);
     seen.add(id);
