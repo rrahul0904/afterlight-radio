@@ -35,6 +35,8 @@ export function buildSourceFirstCatalog({manifest,baselineSource}){
       attribution:entry.attribution||'',
       license:entry.licenseScope,
       assetSha256:entry.assetSha256||null,
+      mixWithAmbienceAllowed:entry.mixWithAmbienceAllowed,
+      mixWithPresenterAllowed:entry.mixWithPresenterAllowed,
       humanListeningApproved:Boolean(entry.humanListeningApproved)
     }));
     rooms[slug]={...meta,tracks};
