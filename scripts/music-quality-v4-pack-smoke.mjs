@@ -30,6 +30,7 @@ try{
   const b=await readFile(path.join(tmp,'blind',pairId,'B.wav'));
   assert.equal(manifest.hashes.A,hash(a),'A hash receipt must bind exact file');
   assert.equal(manifest.hashes.B,hash(b),'B hash receipt must bind exact file');
+  assert.deepEqual(review.exactHashes,manifest.hashes,'review template must bind the exact A/B files');
   assert.equal(review.preferred,'','review must start undecided');
   assert.equal(review.listenedSeconds.A,0,'review listening evidence must start empty');
   assert.equal(review.listenedSeconds.B,0,'review listening evidence must start empty');
@@ -39,4 +40,4 @@ try{
   await rm(tmp,{recursive:true,force:true});
 }
 
-console.log('PASS audio-quality-v4 blind-pack: deterministic blinding, exact hashes, separated truth map, empty review evidence');
+console.log('PASS audio-quality-v4 blind-pack: deterministic blinding, exact hashes, hash-bound review template, separated truth map, empty review evidence');
