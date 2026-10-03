@@ -21,10 +21,19 @@ let activeProvider='owned';
 
 function roomInfo(){return rooms[room]}
 function trackInfo(){return roomInfo().tracks[track]}
+function usesHtmlAudio(provider=activeProvider){return provider==='owned'||provider==='cleared'}
 function syncUrl(){const url=new URL(location.href);url.searchParams.set('room',room);url.searchParams.set('track',String(track+1));url.searchParams.set('view',String(view));history.replaceState(null,'',url)}
+function stopAmbience(){if(!ambience)return;ambience.source.stop();ambience.context.close();ambience=null;ambienceButton.setAttribute('aria-pressed','false')}
+function syncAmbiencePermission(selected){
+  const allowed=selected.provider==='owned'||selected.mixWithAmbienceAllowed===true;
+  if(!allowed)stopAmbience();
+  ambienceButton.disabled=!allowed;
+  ambienceButton.textContent=allowed?(ambience?'Ambience on':'Ambience off'):'Ambience unavailable';
+  ambienceButton.setAttribute('aria-disabled',allowed?'false':'true');
+}
 function setProviderSource(nextTrack){
   activeProvider=nextTrack.provider;
-  if(nextTrack.provider==='owned'){
+  if(usesHtmlAudio(nextTrack.provider)){
     audio.src=nextTrack.source;
     audio.load();
     return;
@@ -38,29 +47,35 @@ function render({preserveAudio=false}={}){
   app.dataset.room=room;
   app.dataset.view=String(view);
   app.dataset.phase=visual.phase;
+  app.dataset.catalogMode=catalog.mode||'demo';
   kicker.textContent=info.label;
   title.textContent=info.title;
   copy.textContent=info.copy;
   trackTitle.textContent=selected.title;
-  trackSubtitle.textContent=`${info.title.replace(/[.]$/,'')} · ${selected.provider==='owned'?'temporary cleared/owned demo source':selected.provider}`;
+  trackSubtitle.textContent=selected.provider==='owned'
+    ? `${info.title.replace(/[.]$/,'')} · temporary cleared/owned demo source`
+    : `${selected.artist||'Unknown artist'} · ${selected.license||'cleared master'}`;
+  if(selected.attribution)trackSubtitle.title=selected.attribution;else trackSubtitle.removeAttribute('title');
   viewState.textContent=`${visual.label} · music keeps playing`;
   document.querySelectorAll('[data-room-choice]').forEach(button=>button.classList.toggle('active',button.dataset.roomChoice===room));
+  syncAmbiencePermission(selected);
   if(!preserveAudio)setProviderSource(selected);
   syncUrl();
 }
 async function play(){
-  if(activeProvider!=='owned')return;
+  if(!usesHtmlAudio())return;
   if(!audio.src)setProviderSource(trackInfo());
   try{await audio.play()}catch{}
 }
-function pause(){if(activeProvider==='owned')audio.pause()}
-function updatePlayState(){const playing=activeProvider==='owned'&&!audio.paused;playButton.textContent=playing?'Ⅱ':'▶';playButton.setAttribute('aria-label',playing?'Pause':'Play');primaryPlay.textContent=playing?'Pause this place':'Play this place';vinyl.classList.toggle('spinning',playing)}
-function changeTrack(delta){const wasPlaying=activeProvider==='owned'&&!audio.paused;track=(track+delta+roomInfo().tracks.length)%roomInfo().tracks.length;render();if(wasPlaying)void play()}
-function changeRoom(next){if(!rooms[next]||next===room)return;const wasPlaying=activeProvider==='owned'&&!audio.paused;room=next;track=0;view=0;render();if(wasPlaying)void play()}
+function pause(){if(usesHtmlAudio())audio.pause()}
+function updatePlayState(){const playing=usesHtmlAudio()&&!audio.paused;playButton.textContent=playing?'Ⅱ':'▶';playButton.setAttribute('aria-label',playing?'Pause':'Play');primaryPlay.textContent=playing?'Pause this place':'Play this place';vinyl.classList.toggle('spinning',playing)}
+function changeTrack(delta){const wasPlaying=usesHtmlAudio()&&!audio.paused;track=(track+delta+roomInfo().tracks.length)%roomInfo().tracks.length;render();if(wasPlaying)void play()}
+function changeRoom(next){if(!rooms[next]||next===room)return;const wasPlaying=usesHtmlAudio()&&!audio.paused;room=next;track=0;view=0;render();if(wasPlaying)void play()}
 function anotherView(){view=(view+1)%viewStates.length;render({preserveAudio:true})}
 
 function toggleAmbience(){
-  if(ambience){ambience.source.stop();ambience.context.close();ambience=null;ambienceButton.textContent='Ambience off';ambienceButton.setAttribute('aria-pressed','false');return}
+  if(ambience){stopAmbience();ambienceButton.textContent='Ambience off';return}
+  if(ambienceButton.disabled)return;
   const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;
   const context=new AudioContext();const length=context.sampleRate*2;const buffer=context.createBuffer(1,length,context.sampleRate);const data=buffer.getChannelData(0);let brown=0;
   for(let i=0;i<length;i++){const white=Math.random()*2-1;brown=(brown+.02*white)/1.02;data[i]=brown*2.8}
