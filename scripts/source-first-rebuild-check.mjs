@@ -22,8 +22,21 @@ if(!runtime.includes("url.searchParams.set('room',room)"))throw new Error('share
 if(!runtime.includes("url.searchParams.set('track',String(track+1))"))throw new Error('share/deep-link track identity missing');
 if(!runtime.includes("url.searchParams.set('view',String(view))"))throw new Error('share/deep-link view identity missing');
 if(!runtime.includes("selected.provider==='owned'")&&!runtime.includes("nextTrack.provider==='owned'"))throw new Error('runtime does not select audio by provider contract');
-if(!catalog.includes("youtube:{kind:'official-iframe'"))throw new Error('official YouTube IFrame provider contract missing');
-if(!catalog.includes("status:'adapter-ready-no-catalog-ids-committed'"))throw new Error('YouTube provider boundary is not explicit');
+
+for(const boundary of [
+  "kind:'official-iframe-visible'",
+  'width:200',
+  'height:200',
+  'requireVisiblePlayback:true',
+  'allowObscuringOverlay:false',
+  'allowAudioExtraction:false',
+  'allowBackgroundPlay:false',
+  'preserveYouTubeMetadataAndStandardExperience:true',
+  "status:'adapter-contract-only-no-catalog-ids-committed'"
+]){
+  if(!catalog.includes(boundary))throw new Error(`YouTube provider compliance boundary missing: ${boundary}`);
+}
+
 if(built!==html)throw new Error('built rebuild HTML does not match source rebuild HTML');
 for(const file of ['styles.css','catalog.js','app.js'])await stat(path.join(root,'public','rebuild',file));
 console.log('source-first Afterlight rebuild contract: PASS');
