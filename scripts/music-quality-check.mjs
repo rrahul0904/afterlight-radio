@@ -52,13 +52,16 @@ for(const slug of slugs){
 const manifest=JSON.parse(await readFile(path.join(pub,'music-manifest.json'),'utf8'));
 if(manifest.version!==3||manifest.generated!==true||manifest.thirdPartyAudio!==false)throw new Error('Music manifest v3 boundary missing');
 if(!Array.isArray(manifest.tracks)||manifest.tracks.length!==36)throw new Error('Music manifest must describe 36 tracks');
+if(manifest.mastering?.gainDb!==5||manifest.mastering?.method!=='linear-post-render-v1')throw new Error('Music manifest mastering contract missing');
 for(const track of manifest.tracks){
   if(track.channels!==2||track.sampleRate!==32000||track.bars!==12)throw new Error('Manifest audio contract drifted: '+JSON.stringify(track));
   if(track.generator!=='afterlight-composition-engine-v3')throw new Error('Unexpected generator: '+track.generator);
   if(track.model!=='authored-elements-plus-deterministic-arrangement')throw new Error('Unexpected composition model: '+track.model);
+  if(track.masterGainDb!==5||track.masteringMethod!=='linear-post-render-v1')throw new Error('Track mastering provenance missing: '+JSON.stringify(track));
   if(!track.title||!track.roomName||!track.style||!track.key)throw new Error('Manifest metadata incomplete: '+JSON.stringify(track));
 }
 
 if(hashes.size!==36)throw new Error('Expected 36 unique generated compositions, got '+hashes.size);
 const minDuration=Math.min(...summaries.map(x=>x.duration)),maxDuration=Math.max(...summaries.map(x=>x.duration));
-console.log('PASS music-quality: 36 unique stereo arrangements; duration '+minDuration.toFixed(1)+'–'+maxDuration.toFixed(1)+'s; manifest v3; first-party deterministic composition engine');
+const minPeak=Math.min(...summaries.map(x=>x.peak)),maxPeak=Math.max(...summaries.map(x=>x.peak));
+console.log('PASS music-quality: 36 unique stereo arrangements; duration '+minDuration.toFixed(1)+'–'+maxDuration.toFixed(1)+'s; +5 dB linear post-render mastering; sampled peak '+minPeak.toFixed(3)+'–'+maxPeak.toFixed(3)+'; manifest v3; first-party deterministic composition engine');
