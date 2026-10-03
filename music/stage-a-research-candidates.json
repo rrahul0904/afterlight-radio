@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "status": "research-shortlist-not-runtime-catalog",
+  "checkedAt": "2026-10-03T20:35:00Z",
+  "licenseNotes": {
+    "CC-BY-4.0": "Commercial reuse and adaptation are permitted with attribution under the license; production intake still requires an acquired audio asset/source plus an attribution/rights receipt.",
+    "CC0-1.0": "The rightsholder has dedicated the work to CC0 to the extent permitted by law; production intake still requires an acquired audio asset/source and provenance receipt."
+  },
+  "entries": [
+    {"room":"rooftop","title":"That Feeling","artist":"Ketsa","durationSeconds":187,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/that-feeling/","fit":"warm instrumental soul/hip-hop beat","assetStatus":"pending"},
+    {"room":"rooftop","title":"My Deal","artist":"Ketsa","durationSeconds":190,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/my-deal/","fit":"soul-RnB instrumental","assetStatus":"pending"},
+    {"room":"rooftop","title":"West Coast","artist":"Ketsa","durationSeconds":197,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/west-coast-1/","fit":"sunset soul instrumental","assetStatus":"pending"},
+    {"room":"rooftop","title":"Good Feel","artist":"Ketsa","durationSeconds":205,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/good-feel/","fit":"warm instrumental beat","assetStatus":"pending"},
+    {"room":"rooftop","title":"Life is Great","artist":"Ketsa","durationSeconds":192,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/life-is-great/","fit":"instrumental bossa/jazz","assetStatus":"pending"},
+    {"room":"rooftop","title":"Here For You","artist":"Ketsa","durationSeconds":191,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/here-for-you/","fit":"downtempo lo-fi instrumental","assetStatus":"pending"},
+    {"room":"rooftop","title":"Jazz For The Soul","artist":"Ketsa","durationSeconds":224,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/jazz-for-the-soul/","fit":"warm jazz instrumental","assetStatus":"pending"},
+    {"room":"rooftop","title":"Tide Turns","artist":"Ketsa","durationSeconds":193,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/tide-turns/","fit":"laid-back jazz beat","assetStatus":"pending"},
+
+    {"room":"window","title":"Night Jazz","artist":"Ketsa","durationSeconds":216,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/night-jazz/","fit":"night jazz instrumental","assetStatus":"pending"},
+    {"room":"window","title":"Slow Hands Jazz","artist":"Ketsa","durationSeconds":216,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/the-unveiling/slow-hands-jazz/","fit":"slow jazz instrumental","assetStatus":"pending"},
+    {"room":"window","title":"Jazz for the Solstice","artist":"Ketsa","durationSeconds":214,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/jazz-for-the-solstice/","fit":"reflective soundtrack/jazz instrumental","assetStatus":"pending"},
+    {"room":"window","title":"Drifting Space Jazz","artist":"Ketsa","durationSeconds":206,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/drifting-space-jazz/","fit":"drifting jazz instrumental","assetStatus":"pending"},
+    {"room":"window","title":"Importance","artist":"Ketsa","durationSeconds":194,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/importance-1/","fit":"jazz beat instrumental","assetStatus":"pending"},
+    {"room":"window","title":"Priorities","artist":"Ketsa","durationSeconds":207,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/priorities/","fit":"jazz beat instrumental","assetStatus":"pending"},
+    {"room":"window","title":"Never Happen","artist":"Ketsa","durationSeconds":182,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/never-happen/","fit":"restrained jazz beat","assetStatus":"pending"},
+    {"room":"window","title":"Longer Wait","artist":"Ketsa","durationSeconds":179,"licenseId":"CC-BY-4.0","licensePage":"https://freemusicarchive.org/music/Ketsa/cc-by-free-to-use-for-anything/longer-wait/","fit":"downtempo instrumental","assetStatus":"pending"},
+
+    {"room":"headspace","title":"Morning Coffee","artist":"HoliznaCC0","durationSeconds":191,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/index.php/music/holiznacc0/lo-fi-and-chill/morning-coffee/","fit":"minimal lo-fi instrumental","assetStatus":"pending"},
+    {"room":"headspace","title":"Everything You Ever Dreamed.","artist":"HoliznaCC0","durationSeconds":220,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/everything-you-ever-dreamed","fit":"lo-fi instrumental","assetStatus":"pending"},
+    {"room":"headspace","title":"A Little Shade","artist":"HoliznaCC0","durationSeconds":178,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/a-little-shade/","fit":"minimal lo-fi instrumental","assetStatus":"pending"},
+    {"room":"headspace","title":"Quiet Moonlit Countrysides","artist":"HoliznaCC0","durationSeconds":338,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/we-drove-all-night/quiet-moonlit-countrysides/","fit":"ambient minimal instrumental","assetStatus":"pending"},
+    {"room":"headspace","title":"Morning Light","artist":"HoliznaCC0","durationSeconds":313,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/we-drove-all-night/morning-light/","fit":"chill instrumental","assetStatus":"pending"},
+    {"room":"headspace","title":"Lost In Thought","artist":"HoliznaCC0","durationSeconds":163,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/lost/lost-in-thought/","fit":"minimal ambient instrumental","assetStatus":"pending"},
+    {"room":"headspace","title":"RetroSpect","artist":"HoliznaCC0","durationSeconds":217,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/index.php/music/holiznacc0/we-drove-all-night/retrospect-1/","fit":"lo-fi instrumental","assetStatus":"pending"},
+    {"room":"headspace","title":"City In The Rearview","artist":"HoliznaCC0","durationSeconds":175,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/we-drove-all-night/city-in-the-rearview/","fit":"chill lo-fi instrumental","assetStatus":"pending"},
+
+    {"room":"last-bus","title":"I Thought You Were Cool","artist":"HoliznaCC0","durationSeconds":240,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/we-drove-all-night/i-thought-you-were-cool/","fit":"night-drive instrumental","assetStatus":"pending"},
+    {"room":"last-bus","title":"Stealing Glimpses Of Your Face","artist":"HoliznaCC0","durationSeconds":156,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/we-drove-all-night/stealing-glimpses-of-your-face/","fit":"nocturnal ambient instrumental","assetStatus":"pending"},
+    {"room":"last-bus","title":"Lost In The City","artist":"HoliznaCC0","durationSeconds":177,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/lost/lost-in-the-city/","fit":"city-night lo-fi instrumental","assetStatus":"pending"},
+    {"room":"last-bus","title":"Lost In Your Eyes","artist":"HoliznaCC0","durationSeconds":236,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/lost/lost-in-your-eyes/","fit":"ambient night instrumental","assetStatus":"pending"},
+    {"room":"last-bus","title":"Lost In Space","artist":"HoliznaCC0","durationSeconds":191,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/lost/lost-in-space-1/","fit":"dark ambient instrumental","assetStatus":"pending"},
+    {"room":"last-bus","title":"We Drove All Night","artist":"HoliznaCC0","durationSeconds":157,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/we-drove-all-night-game-soundtrack/we-drove-all-night/","fit":"night-drive lo-fi instrumental","assetStatus":"pending"},
+    {"room":"last-bus","title":"Washed Up","artist":"HoliznaCC0","durationSeconds":234,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/ocean-memory-lo-fi-chill/washed-up/","fit":"late-night chill instrumental","assetStatus":"pending"},
+    {"room":"last-bus","title":"Roof Tops","artist":"HoliznaCC0","durationSeconds":214,"licenseId":"CC0-1.0","licensePage":"https://freemusicarchive.org/music/holiznacc0/summer-air-lo-fi/roof-tops/","fit":"evening lo-fi instrumental","assetStatus":"pending"}
+  ]
+}
