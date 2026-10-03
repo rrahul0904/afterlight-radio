@@ -80,13 +80,20 @@ for(const [name,type,contextOptions] of targets){
     await page.locator('#afterlightAutoHide').check();
     await page.locator('#afterlightDisplayClose').click();
     await page.waitForFunction(()=>document.body.classList.contains('visual-idle'),{timeout:6500});
+    await page.waitForFunction(()=>{
+      const copy=document.querySelector('.copy');
+      const player=document.querySelector('.player');
+      return copy&&player&&getComputedStyle(copy).opacity==='0'&&getComputedStyle(player).opacity!=='0';
+    },{timeout:1500});
     const focusIdle=await page.evaluate(()=>({
       idle:document.body.classList.contains('visual-idle'),
       mode:document.body.dataset.displayMode,
+      autoHide:document.body.dataset.autoHide,
       copyOpacity:getComputedStyle(document.querySelector('.copy')).opacity,
+      copyHidden:document.querySelector('.copy').classList.contains('afterlight-visual-hidden'),
       playerOpacity:getComputedStyle(document.querySelector('.player')).opacity
     }));
-    if(!focusIdle.idle||focusIdle.mode!=='focus'||focusIdle.copyOpacity!=='0'||focusIdle.playerOpacity==='0'){
+    if(!focusIdle.idle||focusIdle.mode!=='focus'||focusIdle.autoHide!=='true'||focusIdle.copyOpacity!=='0'||focusIdle.playerOpacity==='0'){
       throw new Error('focus idle contract failed '+JSON.stringify(focusIdle));
     }
     await page.mouse.move(25,25);
@@ -101,10 +108,17 @@ for(const [name,type,contextOptions] of targets){
     if(viewAfterInputKey!==viewBeforeInputKey)throw new Error('shortcut hijacked input focus');
     await page.locator('#afterlightDisplayClose').click();
     await page.waitForFunction(()=>document.body.classList.contains('visual-idle'),{timeout:6500});
+    await page.waitForFunction(()=>{
+      const player=document.querySelector('.player');
+      const top=document.querySelector('.top');
+      return player&&top&&getComputedStyle(player).opacity==='0'&&getComputedStyle(top).opacity==='0';
+    },{timeout:1500});
     const canvasIdle=await page.evaluate(()=>({
       mode:document.body.dataset.displayMode,
       playerOpacity:getComputedStyle(document.querySelector('.player')).opacity,
-      topOpacity:getComputedStyle(document.querySelector('.top')).opacity
+      playerHidden:document.querySelector('.player').classList.contains('afterlight-visual-hidden'),
+      topOpacity:getComputedStyle(document.querySelector('.top')).opacity,
+      topHidden:document.querySelector('.top').classList.contains('afterlight-visual-hidden')
     }));
     if(canvasIdle.mode!=='canvas'||canvasIdle.playerOpacity!=='0'||canvasIdle.topOpacity!=='0'){
       throw new Error('canvas idle contract failed '+JSON.stringify(canvasIdle));
