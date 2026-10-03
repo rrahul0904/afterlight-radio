@@ -11,9 +11,12 @@ function assertScore(value,label){
 
 function average(values){return values.reduce((sum,value)=>sum+value,0)/Math.max(1,values.length)}
 
-export function validateBlindReview(review,{pairId}={}){
+export function validateBlindReview(review,{pairId,hashes}={}){
   if(!review||typeof review!=='object')throw new Error('Review must be an object');
   if(pairId&&review.pairId!==pairId)throw new Error(`Review pairId mismatch: expected ${pairId}`);
+  if(hashes){
+    if(review.exactHashes?.A!==hashes.A||review.exactHashes?.B!==hashes.B)throw new Error('Review exactHashes do not match the current A/B manifest');
+  }
   const reviewerId=String(review.reviewerId||'').trim();
   if(!reviewerId)throw new Error('reviewerId is required');
   const listenedA=Number(review.listenedSeconds?.A||0),listenedB=Number(review.listenedSeconds?.B||0);
@@ -24,15 +27,16 @@ export function validateBlindReview(review,{pairId}={}){
     if(!review.scores?.[label])throw new Error(`scores.${label} is required`);
     for(const field of SCORE_FIELDS)assertScore(review.scores[label][field],`scores.${label}.${field}`);
   }
-  return {...review,reviewerId,listenedSeconds:{A:listenedA,B:listenedB}};
+  return {...review,reviewerId,listenedSeconds:{A:listenedA,B:listenedB},exactHashes:{A:hashes?.A||review.exactHashes?.A,B:hashes?.B||review.exactHashes?.B}};
 }
 
 export function evaluateBlindPair({manifest,truth,reviews}){
   if(!manifest?.pairId||manifest.blinded!==true)throw new Error('A valid blinded pair manifest is required');
+  if(!manifest.hashes?.A||!manifest.hashes?.B)throw new Error('Blinded pair manifest must include exact A/B hashes');
   if(!truth||truth.pairId!==manifest.pairId)throw new Error('Private truth map does not match pair manifest');
   if(!['A','B'].includes(truth.finishedLabel))throw new Error('truth.finishedLabel must be A or B');
   if(!Array.isArray(reviews)||reviews.length<2)throw new Error('At least two completed reviews are required');
-  const validated=reviews.map(review=>validateBlindReview(review,{pairId:manifest.pairId}));
+  const validated=reviews.map(review=>validateBlindReview(review,{pairId:manifest.pairId,hashes:manifest.hashes}));
   const ids=new Set(validated.map(review=>review.reviewerId.toLowerCase()));
   if(ids.size!==validated.length)throw new Error('Reviewer identities must be unique');
 
@@ -49,12 +53,12 @@ export function evaluateBlindPair({manifest,truth,reviews}){
   const advanceToMastering=allThresholdsPass&&allShortlist&&unanimousFinishedPreference;
 
   return {
-    version:'afterlight-audio-quality-v4-review-gate-1',
+    version:'afterlight-audio-quality-v4-review-gate-2',
     pairId:manifest.pairId,
     room:manifest.room,
     reviewedAt:new Date().toISOString(),
     reviewerCount:validated.length,
-    exactHashes:{A:manifest.hashes?.A||null,B:manifest.hashes?.B||null},
+    exactHashes:{A:manifest.hashes.A,B:manifest.hashes.B},
     unblindedAfterReview:{finishedLabel:finished,sourceLabel:source},
     preference:{finishedVotes,sourceVotes,ties,unanimousFinishedPreference},
     meanScores:{finished:finishedScores,source:sourceScores},
