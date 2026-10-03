@@ -100,6 +100,11 @@ Current direction:
 
 The curated-source intake gate now supports `owned`, `cleared`, and policy-compliant `youtube` candidates. A cleared entry is rejected unless commercial and streaming permissions, territory, provenance and mixing rights are explicit.
 
+The catalog acquisition plan is staged:
+- Stage A: 8–12 cleared/owned tracks per flagship room for serious audition/UAT;
+- Stage B: 30+ per promoted room or equivalent provider depth after Stage A passes;
+- Stage C: large-scale expansion only after repeat-use evidence.
+
 ## 6. Current rebuild gap matrix
 
 | Capability | Source lesson | Rebuild status | Decision |
@@ -107,10 +112,11 @@ The curated-source intake gate now supports `owned`, `cleared`, and policy-compl
 | Scene-first navigation | Enikq | Present | KEEP |
 | Four flagship rooms | Focused rebuild choice | Present | KEEP UNTIL QUALITY PROVEN |
 | Room-specific music identity | Enikq | Structural contract present, catalog quality unresolved | HIGHEST PRIORITY |
-| Large-enough catalog depth | Enikq feedback loop | Missing | REQUIRED BEFORE PARITY CLAIM |
+| Stage-A audition depth | Enikq feedback loop | Missing: target 8–12 cleared/owned tracks per room | NEXT CORE WORK |
+| Long-session catalog depth | Enikq feedback loop | Missing: Stage B after UAT | REQUIRED BEFORE PARITY CLAIM |
 | Compliant external-provider model | Enikq + current provider rules | Provider-neutral contract + intake gate present; no unverified production IDs committed | KEEP / POPULATE ONLY WITH VERIFIED SOURCES |
 | Rights receipt for cleared music | Production requirement | Automated intake gate present | KEEP |
-| `Another view` preserves music | TunedAway | Present + Chromium/WebKit checks | KEEP |
+| `Another view` preserves music | TunedAway | Present + explicit tests | KEEP |
 | Visual-only continuity copy | TunedAway feedback | Present: view label says music keeps playing | KEEP |
 | Decorative/pointer-inert backgrounds | TunedAway feedback | Present in rebuild styling | KEEP / VERIFY HUMAN UAT |
 | Day/evening/night scene states | Enikq feedback loop | Present as semantic continuous visual states | KEEP |
@@ -129,7 +135,8 @@ Do not call the rebuild successful while the owned generated WAVs are the only m
 
 For each flagship room, require:
 - a distinct curated pool/mix identity;
-- enough depth that a normal listening session does not feel repetitive;
+- Stage-A catalog depth before serious UAT;
+- enough duration that a normal listening session does not feel repetitive;
 - rights/provenance receipts for every promoted external/cleared track;
 - phone speaker, laptop and headphone listening;
 - at least two reviewers with >=15 minutes in the room;
