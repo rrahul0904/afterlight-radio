@@ -16,6 +16,9 @@ on:
       - 'scripts/visual-view-runtime.js'
       - 'scripts/visual-view-check.mjs'
       - 'scripts/visual-view-browser-smoke.mjs'
+      - 'scripts/reactive-stage-runtime.js'
+      - 'scripts/reactive-stage-check.mjs'
+      - 'scripts/reactive-stage-browser-smoke.mjs'
       - 'package.json'
       - 'scripts/browser-smoke.mjs'
       - '.github/workflows/browser-matrix.yml'
@@ -41,6 +44,9 @@ on:
       - 'scripts/visual-view-runtime.js'
       - 'scripts/visual-view-check.mjs'
       - 'scripts/visual-view-browser-smoke.mjs'
+      - 'scripts/reactive-stage-runtime.js'
+      - 'scripts/reactive-stage-check.mjs'
+      - 'scripts/reactive-stage-browser-smoke.mjs'
       - 'package.json'
       - '.github/workflows/browser-matrix.yml'
 
@@ -75,6 +81,8 @@ jobs:
         run: node scripts/browser-smoke.mjs
       - name: Verify visual-view playback continuity
         run: node scripts/visual-view-browser-smoke.mjs
+      - name: Verify reactive listening stage
+        run: node scripts/reactive-stage-browser-smoke.mjs
       - name: Upload visual review screenshots
         if: always()
         uses: actions/upload-artifact@v4
