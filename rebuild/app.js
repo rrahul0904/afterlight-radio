@@ -1,9 +1,6 @@
-const rooms={
-  rooftop:{label:'ROOFTOP · 7:42 PM',title:'Nobody wants to go in.',copy:'The city is still warm. Nobody has said goodbye yet.',slug:'rooftop',tracks:['Orange on the parapet','Windows turning gold','Last glass before dark']},
-  window:{label:'WINDOW SEAT · RAIN',title:'Stay until your stop.',copy:'Streetlights smear across the glass and the bus keeps moving.',slug:'window',tracks:['Streetlights in water','Quiet between the buses','Blue room, warm cup']},
-  headspace:{label:'HEADSPACE · QUIET HOURS',title:'A little room in your head.',copy:'Nothing needs your attention except the next line.',slug:'headspace',tracks:['Margin notes','The second cup','Window open four inches']},
-  'last-bus':{label:'LAST BUS · 12:18 AM',title:'Home through the glass.',copy:'Almost nobody is talking. The city has finally lowered its voice.',slug:'last-bus',tracks:['Doors closing','Nobody at the platform','Home through glass']}
-};
+const catalog=window.AFTERLIGHT_REBUILD_CATALOG;
+if(!catalog?.rooms)throw new Error('Afterlight rebuild catalog is missing');
+const rooms=catalog.rooms;
 
 const app=document.querySelector('#app');
 const audio=document.querySelector('#audio');
@@ -18,31 +15,44 @@ const vinyl=document.querySelector('#vinyl');
 const ambienceButton=document.querySelector('#ambience');
 let room='rooftop',track=0,view=0;
 let ambience=null;
+let activeProvider='owned';
 
-function sourceFor(nextRoom,nextTrack){return `/audio/${nextRoom}/${nextTrack+1}.wav`}
 function roomInfo(){return rooms[room]}
+function trackInfo(){return roomInfo().tracks[track]}
 function syncUrl(){const url=new URL(location.href);url.searchParams.set('room',room);url.searchParams.set('track',String(track+1));url.searchParams.set('view',String(view));history.replaceState(null,'',url)}
+function setProviderSource(nextTrack){
+  activeProvider=nextTrack.provider;
+  if(nextTrack.provider==='owned'){
+    audio.src=nextTrack.source;
+    audio.load();
+    return;
+  }
+  audio.removeAttribute('src');
+  audio.load();
+  throw new Error(`Provider ${nextTrack.provider} is not enabled in this clean-room preview`);
+}
 function render({preserveAudio=false}={}){
-  const info=roomInfo();
+  const info=roomInfo(),selected=trackInfo();
   app.dataset.room=room;
   app.dataset.view=String(view);
   kicker.textContent=info.label;
   title.textContent=info.title;
   copy.textContent=info.copy;
-  trackTitle.textContent=info.tracks[track];
-  trackSubtitle.textContent=`${info.title.replace(/[.]$/,'')} · temporary owned demo source`;
+  trackTitle.textContent=selected.title;
+  trackSubtitle.textContent=`${info.title.replace(/[.]$/,'')} · ${selected.provider==='owned'?'temporary cleared/owned demo source':selected.provider}`;
   document.querySelectorAll('[data-room-choice]').forEach(button=>button.classList.toggle('active',button.dataset.roomChoice===room));
-  if(!preserveAudio){audio.src=sourceFor(room,track);audio.load()}
+  if(!preserveAudio)setProviderSource(selected);
   syncUrl();
 }
 async function play(){
-  if(!audio.src)render();
+  if(activeProvider!=='owned')return;
+  if(!audio.src)setProviderSource(trackInfo());
   try{await audio.play()}catch{}
 }
-function pause(){audio.pause()}
-function updatePlayState(){const playing=!audio.paused;playButton.textContent=playing?'Ⅱ':'▶';playButton.setAttribute('aria-label',playing?'Pause':'Play');primaryPlay.textContent=playing?'Pause this place':'Play this place';vinyl.classList.toggle('spinning',playing)}
-function changeTrack(delta){const wasPlaying=!audio.paused;track=(track+delta+roomInfo().tracks.length)%roomInfo().tracks.length;render();if(wasPlaying)void play()}
-function changeRoom(next){if(!rooms[next]||next===room)return;const wasPlaying=!audio.paused;room=next;track=0;view=0;render();if(wasPlaying)void play()}
+function pause(){if(activeProvider==='owned')audio.pause()}
+function updatePlayState(){const playing=activeProvider==='owned'&&!audio.paused;playButton.textContent=playing?'Ⅱ':'▶';playButton.setAttribute('aria-label',playing?'Pause':'Play');primaryPlay.textContent=playing?'Pause this place':'Play this place';vinyl.classList.toggle('spinning',playing)}
+function changeTrack(delta){const wasPlaying=activeProvider==='owned'&&!audio.paused;track=(track+delta+roomInfo().tracks.length)%roomInfo().tracks.length;render();if(wasPlaying)void play()}
+function changeRoom(next){if(!rooms[next]||next===room)return;const wasPlaying=activeProvider==='owned'&&!audio.paused;room=next;track=0;view=0;render();if(wasPlaying)void play()}
 function anotherView(){view=(view+1)%3;render({preserveAudio:true})}
 
 function toggleAmbience(){
@@ -54,7 +64,7 @@ function toggleAmbience(){
 }
 
 async function shareMoment(){
-  const url=new URL(location.href);url.searchParams.set('room',room);url.searchParams.set('track',String(track+1));url.searchParams.set('view',String(view));const text=`Afterlight — ${roomInfo().title} · ${roomInfo().tracks[track]}`;
+  const url=new URL(location.href);url.searchParams.set('room',room);url.searchParams.set('track',String(track+1));url.searchParams.set('view',String(view));const text=`Afterlight — ${roomInfo().title} · ${trackInfo().title}`;
   if(navigator.share){await navigator.share({title:'Afterlight',text,url:url.toString()}).catch(()=>undefined);return}
   await navigator.clipboard?.writeText(url.toString());
 }
@@ -70,4 +80,4 @@ primaryPlay.addEventListener('click',()=>audio.paused?void play():pause());
 audio.addEventListener('play',updatePlayState);audio.addEventListener('pause',updatePlayState);audio.addEventListener('ended',()=>changeTrack(1));
 window.addEventListener('keydown',event=>{if(event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement)return;if(event.code==='Space'){event.preventDefault();audio.paused?void play():pause()}if(event.key==='ArrowRight')changeTrack(1);if(event.key==='ArrowLeft')changeTrack(-1);if(event.key.toLowerCase()==='v')anotherView()});
 
-const params=new URLSearchParams(location.search);if(rooms[params.get('room')])room=params.get('room');const requestedTrack=Number(params.get('track'));if(Number.isInteger(requestedTrack)&&requestedTrack>=1&&requestedTrack<=3)track=requestedTrack-1;const requestedView=Number(params.get('view'));if(Number.isInteger(requestedView)&&requestedView>=0&&requestedView<=2)view=requestedView;render();updatePlayState();
+const params=new URLSearchParams(location.search);if(rooms[params.get('room')])room=params.get('room');const requestedTrack=Number(params.get('track'));if(Number.isInteger(requestedTrack)&&requestedTrack>=1&&requestedTrack<=roomInfo().tracks.length)track=requestedTrack-1;const requestedView=Number(params.get('view'));if(Number.isInteger(requestedView)&&requestedView>=0&&requestedView<=2)view=requestedView;render();updatePlayState();
