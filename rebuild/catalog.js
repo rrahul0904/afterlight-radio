@@ -1,5 +1,5 @@
 window.AFTERLIGHT_REBUILD_CATALOG={
-  version:1,
+  version:2,
   rooms:{
     rooftop:{label:'ROOFTOP · 7:42 PM',title:'Nobody wants to go in.',copy:'The city is still warm. Nobody has said goodbye yet.',mix:'sunset soul',tracks:[
       {id:'rooftop-1',title:'Orange on the parapet',provider:'owned',source:'/audio/rooftop/1.wav'},
@@ -20,6 +20,16 @@ window.AFTERLIGHT_REBUILD_CATALOG={
   },
   providerContract:{
     owned:{kind:'html-audio',rights:'first-party-or-cleared'},
-    youtube:{kind:'official-iframe',rights:'embed-availability-required',status:'adapter-ready-no-catalog-ids-committed'}
+    youtube:{
+      kind:'official-iframe-visible',
+      rights:'embed-availability-required',
+      status:'adapter-contract-only-no-catalog-ids-committed',
+      minViewport:{width:200,height:200},
+      requireVisiblePlayback:true,
+      allowObscuringOverlay:false,
+      allowAudioExtraction:false,
+      allowBackgroundPlay:false,
+      preserveYouTubeMetadataAndStandardExperience:true
+    }
   }
 };
