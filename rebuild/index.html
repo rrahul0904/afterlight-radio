@@ -14,7 +14,7 @@
 
     <header class="topbar">
       <a class="brand" href="/rebuild/" aria-label="Afterlight home">afterlight</a>
-      <div class="status">source-first rebuild · temporary owned demo audio</div>
+      <div class="status">source-first rebuild · temporary cleared/owned demo pool</div>
     </header>
 
     <section class="hero" aria-labelledby="room-title">
@@ -49,10 +49,12 @@
         <button id="share">Share this moment</button>
       </div>
       <audio id="audio" preload="metadata"></audio>
+      <div id="external-player" hidden aria-hidden="true"></div>
     </section>
 
     <p class="principle">Pick somewhere else to be. Press play. Stay there.</p>
   </main>
+  <script src="/rebuild/catalog.js"></script>
   <script src="/rebuild/app.js" defer></script>
 </body>
 </html>
