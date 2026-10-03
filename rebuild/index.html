@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#0b0d12"/>
+  <title>Afterlight — somewhere else, for a while</title>
+  <meta name="description" content="Pick a place, press play, and stay there."/>
+  <link rel="stylesheet" href="/rebuild/styles.css"/>
+</head>
+<body>
+  <main id="app" class="app" data-room="rooftop" data-view="0">
+    <div class="scene" aria-hidden="true"><div class="scene-orb orb-a"></div><div class="scene-orb orb-b"></div><div class="grain"></div></div>
+
+    <header class="topbar">
+      <a class="brand" href="/rebuild/" aria-label="Afterlight home">afterlight</a>
+      <div class="status">source-first rebuild · temporary owned demo audio</div>
+    </header>
+
+    <section class="hero" aria-labelledby="room-title">
+      <p id="room-kicker" class="kicker">ROOFTOP · 7:42 PM</p>
+      <h1 id="room-title">Nobody wants to go in.</h1>
+      <p id="room-copy" class="room-copy">The city is still warm. Nobody has said goodbye yet.</p>
+      <div class="hero-actions">
+        <button id="primary-play" class="primary">Play this place</button>
+        <button id="another-view" class="ghost">Another view</button>
+      </div>
+    </section>
+
+    <section class="room-strip" aria-label="Choose a place">
+      <button class="room-card active" data-room-choice="rooftop"><span>01</span><strong>Rooftop</strong><small>sunset soul</small></button>
+      <button class="room-card" data-room-choice="window"><span>02</span><strong>Window seat</strong><small>rainy jazz</small></button>
+      <button class="room-card" data-room-choice="headspace"><span>03</span><strong>Headspace</strong><small>focus piano</small></button>
+      <button class="room-card" data-room-choice="last-bus"><span>04</span><strong>Last bus</strong><small>night ambient</small></button>
+    </section>
+
+    <section class="player" aria-label="Player">
+      <div class="track-meta">
+        <div class="vinyl" id="vinyl" aria-hidden="true"><i></i></div>
+        <div><p class="mini">PLAYING HERE</p><strong id="track-title">Orange on the parapet</strong><small id="track-subtitle">Rooftop · owned demo source</small></div>
+      </div>
+      <div class="transport">
+        <button id="prev" aria-label="Previous track">←</button>
+        <button id="play" class="play" aria-label="Play">▶</button>
+        <button id="next" aria-label="Next track">→</button>
+      </div>
+      <div class="player-tools">
+        <button id="ambience" aria-pressed="false">Ambience off</button>
+        <button id="share">Share this moment</button>
+      </div>
+      <audio id="audio" preload="metadata"></audio>
+    </section>
+
+    <p class="principle">Pick somewhere else to be. Press play. Stay there.</p>
+  </main>
+  <script src="/rebuild/app.js" defer></script>
+</body>
+</html>
