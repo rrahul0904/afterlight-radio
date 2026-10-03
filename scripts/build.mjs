@@ -1,6 +1,7 @@
-import { mkdir, readFile, rm, writeFile, stat } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { generateAudio, audioRoomSlugs } from './audio-library.mjs';
+import { buildSourceFirstCatalog } from './build-source-first-catalog.mjs';
 
 const root=process.cwd(),out=path.join(root,'public'),slugs=audioRoomSlugs;
 const improveContrast=html=>html
@@ -8,6 +9,22 @@ const improveContrast=html=>html
   .replaceAll('#766d61','#675e53');
 const SHELL_REV='offline2';
 const injectScript=(html,src)=>html.replace('</body>',`<script src="${src}?v=${SHELL_REV}"></script>\n</body>`);
+
+const stageAManifest=JSON.parse(await readFile(path.join(root,'music','stage-a-catalog.json'),'utf8'));
+const baselineRebuildCatalog=await readFile(path.join(root,'rebuild','catalog.js'),'utf8');
+const sourceFirstCatalog=buildSourceFirstCatalog({manifest:stageAManifest,baselineSource:baselineRebuildCatalog});
+const curatedCopies=[];
+if(sourceFirstCatalog.mode==='stage-a'){
+  for(const entry of stageAManifest.entries){
+    if(!entry.sourceUrl?.startsWith('/audio/curated/'))throw new Error(`Stage-A entry ${entry.title} must resolve to /audio/curated/ after admission`);
+    const relative=entry.sourceUrl.slice('/audio/curated/'.length);
+    const sourcePath=path.join(root,'music','curated',relative);
+    const info=await stat(sourcePath).catch(()=>null);
+    if(!info?.isFile()||info.size<=0)throw new Error(`Stage-A asset missing for ${entry.room}/${entry.title}: music/curated/${relative}`);
+    curatedCopies.push({sourcePath,relative});
+  }
+}
+
 await rm(out,{recursive:true,force:true});
 await mkdir(out,{recursive:true});
 const sourceHtml=await readFile(path.join(root,'index.html'),'utf8');
@@ -46,6 +63,13 @@ for(const page of ['privacy','terms','support']){
   await writeFile(path.join(dir,'index.html'),improveContrast(pageHtml));
 }
 
+const rebuildDir=path.join(out,'rebuild');
+await mkdir(rebuildDir,{recursive:true});
+for(const file of ['index.html','styles.css','app.js']){
+  await writeFile(path.join(rebuildDir,file),await readFile(path.join(root,'rebuild',file)));
+}
+await writeFile(path.join(rebuildDir,'catalog.js'),sourceFirstCatalog.source);
+
 const accountDir=path.join(out,'account');
 await mkdir(accountDir,{recursive:true});
 const accountSource=improveContrast(await readFile(path.join(root,'account.html'),'utf8'));
@@ -68,5 +92,10 @@ await writeFile(path.join(out,'_headers'),`/*
 `);
 
 const count=await generateAudio(out);
+for(const item of curatedCopies){
+  const destination=path.join(out,'audio','curated',item.relative);
+  await mkdir(path.dirname(destination),{recursive:true});
+  await cp(item.sourcePath,destination);
+}
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
-console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest (sample ${sample.size} bytes)`);
+console.log(`Built ${slugs.length} room routes, source-first rebuild catalog mode=${sourceFirstCatalog.mode}, ${curatedCopies.length} curated Stage-A assets, mobile/audio/focus/offline-library/queue/catalog runtime, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo demo audio files (sample ${sample.size} bytes)`);
