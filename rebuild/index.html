@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/rebuild/styles.css"/>
 </head>
 <body>
-  <main id="app" class="app" data-room="rooftop" data-view="0">
+  <main id="app" class="app" data-room="rooftop" data-view="0" data-phase="evening">
     <div class="scene" aria-hidden="true"><div class="scene-orb orb-a"></div><div class="scene-orb orb-b"></div><div class="grain"></div></div>
 
     <header class="topbar">
@@ -23,7 +23,7 @@
       <p id="room-copy" class="room-copy">The city is still warm. Nobody has said goodbye yet.</p>
       <div class="hero-actions">
         <button id="primary-play" class="primary">Play this place</button>
-        <button id="another-view" class="ghost">Another view</button>
+        <div class="view-control"><button id="another-view" class="ghost">Another view</button><small id="view-state">Evening view · music keeps playing</small></div>
       </div>
     </section>
 
