@@ -1,7 +1,8 @@
 import { mkdir, readFile, rm, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { generateAudio, audioRoomSlugs } from './audio-library.mjs';
+import { generateAudio, audioRoomSlugs, musicRooms } from './audio-library.mjs';
 import { masterGeneratedCatalog, V3_MASTER_GAIN_DB } from './audio-mastering-trim.mjs';
+import { createBlindPair } from './music-quality-v4-pack.mjs';
 
 const root=process.cwd(),out=path.join(root,'public'),slugs=audioRoomSlugs;
 const improveContrast=html=>html
@@ -66,10 +67,50 @@ await writeFile(path.join(out,'_headers'),`/*
   Cross-Origin-Opener-Policy: same-origin
 /audio/*
   Cache-Control: public, max-age=31536000, immutable
+/audio-lab/audio/*
+  Cache-Control: public, max-age=3600
 `);
 
 const count=await generateAudio(out);
 const mastered=await masterGeneratedCatalog(out,slugs);
+
+if(process.env.AFTERLIGHT_AUDIO_LAB==='1'){
+  const flagship=['rooftop','window','headspace','last-bus'];
+  const labRoot=path.join(out,'audio-lab');
+  await mkdir(labRoot,{recursive:true});
+  const labHtml=await readFile(path.join(root,'audio-lab.html'),'utf8');
+  await writeFile(path.join(labRoot,'index.html'),labHtml);
+  const rooms=[];
+  for(const room of flagship){
+    const pair=createBlindPair({room,seed:'flagship-a',role:1,bars:24});
+    const roomDir=path.join(labRoot,'audio',room);
+    await mkdir(roomDir,{recursive:true});
+    await writeFile(path.join(roomDir,'A.wav'),pair.A);
+    await writeFile(path.join(roomDir,'B.wav'),pair.B);
+    const profile=musicRooms.find(entry=>entry.slug===room);
+    const seconds=profile?24*4*60/profile.bpm:0;
+    rooms.push({
+      pairId:pair.pairId,
+      room,
+      roomName:profile?.name||room,
+      files:{A:`/audio-lab/audio/${room}/A.wav`,B:`/audio-lab/audio/${room}/B.wav`},
+      hashes:pair.publicManifest.hashes,
+      durationLabel:`about ${Math.max(1,Math.round(seconds/60))} min each`,
+      blinded:true
+    });
+  }
+  await writeFile(path.join(labRoot,'manifest.json'),JSON.stringify({
+    schema:'afterlight-audio-lab/v1',
+    releaseSha:release,
+    status:'audition-only',
+    blinded:true,
+    rooms,
+    privacy:'Review state stays in browser localStorage unless the reviewer explicitly exports JSON.',
+    releaseBoundary:'Audio Lab evidence does not publish or replace production audio.'
+  },null,2)+'\n');
+}
+
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
 const masteredPeak=Math.max(...mastered.map(track=>track.masteredSamplePeak));
-console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest with +${V3_MASTER_GAIN_DB} dB linear master trim (max sample peak ${masteredPeak.toFixed(3)}, sample ${sample.size} bytes)`);
+const labSuffix=process.env.AFTERLIGHT_AUDIO_LAB==='1'?' + blind flagship Audio Lab':'';
+console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest with +${V3_MASTER_GAIN_DB} dB linear master trim${labSuffix} (max sample peak ${masteredPeak.toFixed(3)}, sample ${sample.size} bytes)`);
