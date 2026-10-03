@@ -8,6 +8,8 @@ permissions:
 jobs:
   build-and-check:
     runs-on: ubuntu-latest
+    env:
+      AFTERLIGHT_RELEASE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,3 +25,47 @@ jobs:
           ffmpeg -version
       - run: npm install
       - run: npm test
+      - name: Verify exact release marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(tr -d '\r\n' < public/release.txt)" = "$AFTERLIGHT_RELEASE_SHA"
+      - name: Write deploy bundle manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs');
+          const crypto=require('crypto');
+          const path=require('path');
+          const root='public';
+          const files=[];
+          function walk(dir){
+            for(const name of fs.readdirSync(dir)){
+              const p=path.join(dir,name),st=fs.statSync(p);
+              if(st.isDirectory()) walk(p);
+              else files.push({path:p,size:st.size,sha256:crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')});
+            }
+          }
+          walk(root);
+          files.sort((a,b)=>a.path.localeCompare(b.path));
+          const manifest={schema:'afterlight-deploy-bundle/v1',releaseSha:process.env.AFTERLIGHT_RELEASE_SHA,fileCount:files.length,files};
+          fs.writeFileSync('deploy-bundle-manifest.json',JSON.stringify(manifest,null,2)+'\n');
+          NODE
+      - name: Upload exact-head deploy bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-deploy-${{ env.AFTERLIGHT_RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            public/
+            api/
+            functions/
+            src/
+            neon/
+            vercel.json
+            wrangler.jsonc
+            package.json
+            package-lock.json
+            deploy-bundle-manifest.json
