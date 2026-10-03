@@ -48,7 +48,7 @@ for(const page of ['privacy','terms','support']){
 
 const rebuildDir=path.join(out,'rebuild');
 await mkdir(rebuildDir,{recursive:true});
-for(const file of ['index.html','styles.css','app.js']){
+for(const file of ['index.html','styles.css','catalog.js','app.js']){
   await writeFile(path.join(rebuildDir,file),await readFile(path.join(root,'rebuild',file)));
 }
 
@@ -75,4 +75,4 @@ await writeFile(path.join(out,'_headers'),`/*
 
 const count=await generateAudio(out);
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
-console.log(`Built ${slugs.length} room routes, source-first rebuild preview, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest (sample ${sample.size} bytes)`);
+console.log(`Built ${slugs.length} room routes, source-first provider-neutral rebuild preview, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest (sample ${sample.size} bytes)`);
