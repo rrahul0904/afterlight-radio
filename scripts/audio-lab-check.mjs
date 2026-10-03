@@ -14,12 +14,16 @@ const manifest=JSON.parse(await readFile(path.join(lab,'manifest.json'),'utf8'))
 assert.equal(manifest.schema,'afterlight-audio-lab/v1');
 assert.equal(manifest.status,'audition-only');
 assert.equal(manifest.blinded,true);
+assert.equal(manifest.candidateSeed,'flagship-a');
+assert.equal(manifest.candidateBars,32);
 assert.deepEqual(manifest.rooms.map(x=>x.room),expected);
 if(process.env.AFTERLIGHT_RELEASE_SHA)assert.equal(manifest.releaseSha,process.env.AFTERLIGHT_RELEASE_SHA,'Audio Lab release marker drifted');
 
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 for(const room of manifest.rooms){
   assert.equal(room.blinded,true,`${room.room} must stay blinded`);
+  assert.ok(room.durationSeconds>=90,`${room.room} must provide at least 90 seconds per blind version`);
+  assert.equal(room.minimumListeningSecondsPerVersion,90,`${room.room} review minimum drifted`);
   const aPath=path.join(root,'public',room.files.A.replace(/^\//,''));
   const bPath=path.join(root,'public',room.files.B.replace(/^\//,''));
   const [a,b,aStat,bStat]=await Promise.all([readFile(aPath),readFile(bPath),stat(aPath),stat(bPath)]);
@@ -29,9 +33,11 @@ for(const room of manifest.rooms){
   assert.equal(sha(b),room.hashes.B,`${room.room} B hash mismatch`);
 }
 
-let leakedTruth=false;
-try{await access(path.join(lab,'private','truth-map.json'));leakedTruth=true}catch{}
-assert.equal(leakedTruth,false,'Private treatment identity must never ship in public Audio Lab');
+for(const forbiddenPath of ['private/truth-map.json','music-agent-summary.json']){
+  let leaked=false;
+  try{await access(path.join(lab,forbiddenPath));leaked=true}catch{}
+  assert.equal(leaked,false,`Blind Audio Lab must not ship treatment-revealing evidence: ${forbiddenPath}`);
+}
 
 const html=await readFile(path.join(lab,'index.html'),'utf8');
 assert.match(html,/localStorage/,'Audio Lab must keep review state local');
@@ -40,4 +46,4 @@ for(const forbidden of ['sendBeacon','XMLHttpRequest','FormData','google-analyti
   assert.equal(html.includes(forbidden),false,`Audio Lab must not contain review-upload/analytics primitive: ${forbidden}`);
 }
 
-console.log(`PASS audio-lab: ${manifest.rooms.length} blind flagship rooms, exact hashes, no public truth map, local-only review state`);
+console.log(`PASS audio-lab: ${manifest.rooms.length} blind flagship rooms, >=90s each, exact hashes, no treatment evidence, local-only review state`);
