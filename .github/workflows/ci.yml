@@ -39,6 +39,26 @@ jobs:
           --role 1
           --bars 24
           --out .music-lab/v4-blind-ci
+      - name: Run Music QA Agent on flagship candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/music-quality-agent.mjs \
+            --rooms rooftop,window,headspace,last-bus \
+            --seeds agent-ci \
+            --role 1 \
+            --bars 24 \
+            --out .music-lab/music-agent-ci
+          mkdir -p public/audio-lab
+          cp .music-lab/music-agent-ci/summary.json public/audio-lab/music-agent-summary.json
+          node - <<'NODE'
+          const s=require('./.music-lab/music-agent-ci/summary.json');
+          if(s.rejected>0){
+            console.error(`Music QA Agent rejected ${s.rejected}/${s.candidateCount} flagship candidates.`);
+            process.exit(1);
+          }
+          if(s.eligibleForHumanReview!==s.candidateCount) throw new Error('Music QA Agent summary is inconsistent');
+          NODE
       - name: Write deploy bundle manifest
         shell: bash
         run: |
@@ -78,6 +98,13 @@ jobs:
             package.json
             package-lock.json
             deploy-bundle-manifest.json
+      - name: Upload Music QA Agent evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-music-agent-${{ env.AFTERLIGHT_RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 14
+          path: .music-lab/music-agent-ci/
       - name: Upload blind flagship listening pack
         uses: actions/upload-artifact@v4
         with:
