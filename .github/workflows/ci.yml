@@ -30,6 +30,14 @@ jobs:
         run: |
           set -euo pipefail
           test "$(tr -d '\r\n' < public/release.txt)" = "$AFTERLIGHT_RELEASE_SHA"
+      - name: Generate flagship blind listening pack
+        run: >-
+          node scripts/music-quality-v4-pack.mjs
+          --rooms rooftop,window,headspace,last-bus
+          --seeds flagship-a
+          --role 1
+          --bars 24
+          --out .music-lab/v4-blind-ci
       - name: Write deploy bundle manifest
         shell: bash
         run: |
@@ -69,3 +77,19 @@ jobs:
             package.json
             package-lock.json
             deploy-bundle-manifest.json
+      - name: Upload blind flagship listening pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-v4-blind-listening-${{ env.AFTERLIGHT_RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .music-lab/v4-blind-ci/blind/
+            .music-lab/v4-blind-ci/pack-manifest.json
+      - name: Upload private treatment map
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-v4-private-truth-${{ env.AFTERLIGHT_RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 14
+          path: .music-lab/v4-blind-ci/private/truth-map.json
