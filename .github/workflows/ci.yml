@@ -37,27 +37,48 @@ jobs:
           --rooms rooftop,window,headspace,last-bus
           --seeds flagship-a
           --role 1
-          --bars 24
+          --bars 32
           --out .music-lab/v4-blind-ci
-      - name: Run Music QA Agent on flagship candidates
+      - name: Run Music QA Agent on exact flagship candidates
         shell: bash
         run: |
           set -euo pipefail
           node scripts/music-quality-agent.mjs \
             --rooms rooftop,window,headspace,last-bus \
-            --seeds agent-ci \
+            --seeds flagship-a \
             --role 1 \
-            --bars 24 \
+            --bars 32 \
             --out .music-lab/music-agent-ci
-          mkdir -p public/audio-lab
-          cp .music-lab/music-agent-ci/summary.json public/audio-lab/music-agent-summary.json
           node - <<'NODE'
-          const s=require('./.music-lab/music-agent-ci/summary.json');
-          if(s.rejected>0){
-            console.error(`Music QA Agent rejected ${s.rejected}/${s.candidateCount} flagship candidates.`);
+          const fs=require('fs');
+          const path=require('path');
+          const summary=require('./.music-lab/music-agent-ci/summary.json');
+          const truth=require('./.music-lab/v4-blind-ci/private/truth-map.json');
+          const lab=require('./public/audio-lab/manifest.json');
+          if(summary.rejected>0){
+            console.error(`Music QA Agent rejected ${summary.rejected}/${summary.candidateCount} flagship candidates.`);
             process.exit(1);
           }
-          if(s.eligibleForHumanReview!==s.candidateCount) throw new Error('Music QA Agent summary is inconsistent');
+          if(summary.eligibleForHumanReview!==summary.candidateCount) throw new Error('Music QA Agent summary is inconsistent');
+          if(summary.candidateCount!==4) throw new Error('Expected four flagship QA reports');
+          if(fs.existsSync('public/audio-lab/music-agent-summary.json')) throw new Error('Music QA evidence must not ship in public Audio Lab because it can reveal treatment identity');
+          for(const row of summary.reports){
+            if(row.seed!=='flagship-a') throw new Error(`${row.room}: QA seed drifted from blind candidate`);
+            const report=require(path.resolve(`.music-lab/music-agent-ci/${row.room}-flagship-a.json`));
+            const treatment=truth.pairs.find(entry=>entry.room===row.room);
+            if(!treatment) throw new Error(`${row.room}: missing private treatment binding`);
+            const blind=require(path.resolve(`.music-lab/v4-blind-ci/blind/${treatment.pairId}/manifest.json`));
+            const deployed=lab.rooms.find(entry=>entry.room===row.room);
+            if(!deployed) throw new Error(`${row.room}: missing deployed Audio Lab candidate`);
+            if(report.hashes.finished!==treatment.finishedSha256) throw new Error(`${row.room}: QA finished hash does not match blind treatment`);
+            if(report.hashes.source!==treatment.sourceSha256) throw new Error(`${row.room}: QA source hash does not match blind treatment`);
+            const blindHashes=Object.values(blind.hashes);
+            if(!blindHashes.includes(report.hashes.finished)||!blindHashes.includes(report.hashes.source)) throw new Error(`${row.room}: blind pair does not contain the QA source and finished files`);
+            if(blind.hashes.A!==deployed.hashes.A||blind.hashes.B!==deployed.hashes.B) throw new Error(`${row.room}: deployed Audio Lab hashes drifted from blind pack`);
+            if(report.features.finished.durationSeconds<90) throw new Error(`${row.room}: QA candidate is shorter than 90 seconds`);
+            if(deployed.durationSeconds<90||deployed.minimumListeningSecondsPerVersion!==90) throw new Error(`${row.room}: Audio Lab review duration contract is invalid`);
+          }
+          console.log('PASS exact-candidate binding: Music QA, private truth map, blind pack and public Audio Lab refer to the same >=90s flagship audio without exposing treatment identity');
           NODE
       - name: Write deploy bundle manifest
         shell: bash
