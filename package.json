@@ -29,7 +29,7 @@
     "music:quality-v4": "node scripts/music-quality-v4.mjs",
     "music:quality-v4-pack": "node scripts/music-quality-v4-pack.mjs",
     "music:quality-v4-review": "node scripts/music-quality-v4-review-gate.mjs",
-    "check:audio-quality-v4": "node --check scripts/music-quality-v4.mjs && node --check scripts/music-quality-v4-smoke.mjs && node --check scripts/music-quality-v4-pack.mjs && node --check scripts/music-quality-v4-pack-smoke.mjs && node --check scripts/music-quality-v4-review-gate.mjs && node --check scripts/music-quality-v4-review-gate-smoke.mjs && node scripts/music-quality-v4-smoke.mjs && node scripts/music-quality-v4-pack-smoke.mjs && node scripts/music-quality-v4-review-gate-smoke.mjs",
+    "check:audio-quality-v4": "node --check scripts/music-quality-v4.mjs && node --check scripts/music-quality-v4-smoke.mjs && node --check scripts/music-quality-v4-pack.mjs && node --check scripts/music-quality-v4-pack-smoke.mjs && node --check scripts/music-quality-v4-review-gate.mjs && node --check scripts/music-quality-v4-review-gate-smoke.mjs && node --check scripts/audio-lab-check.mjs && node scripts/music-quality-v4-smoke.mjs && node scripts/music-quality-v4-pack-smoke.mjs && node scripts/music-quality-v4-review-gate-smoke.mjs && node scripts/audio-lab-check.mjs",
     "music:intake-master": "node scripts/music-master-intake.mjs",
     "music:mastering-certify": "node scripts/music-mastering-certify.mjs",
     "music:release-certificate": "node scripts/music-release-certificate.mjs",
