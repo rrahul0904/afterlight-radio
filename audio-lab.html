@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Afterlight Audio Lab</title>
+  <style>
+    :root{color-scheme:dark;background:#11100f;color:#f3eee6;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#28231d 0,#11100f 42%,#0b0a09 100%);min-height:100vh}
+    main{width:min(980px,calc(100% - 32px));margin:0 auto;padding:48px 0 80px}.eyebrow{letter-spacing:.18em;text-transform:uppercase;font-size:.74rem;color:#cdbfae}h1{font-size:clamp(2rem,5vw,4.2rem);line-height:.95;margin:.45rem 0 1rem;max-width:760px}.lede{max-width:760px;color:#cfc6bb;line-height:1.65}.notice{margin:28px 0;padding:16px 18px;border:1px solid #413a31;border-radius:14px;background:#181511;color:#d7cbbd}.identity{display:grid;gap:7px;margin:0 0 22px;max-width:440px;color:#cfc6bb}.identity input{background:#0c0b0a;color:#f3eee6;border:1px solid #3b342c;border-radius:10px;padding:10px}.grid{display:grid;gap:18px}.card{border:1px solid #3b342c;border-radius:18px;background:rgba(27,23,19,.92);padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.22)}.room{font-size:1.25rem;margin:0 0 4px}.meta{font-size:.82rem;color:#a89a8a;margin-bottom:18px}.players{display:grid;grid-template-columns:1fr 1fr;gap:14px}.player{padding:14px;border-radius:14px;background:#100e0c;border:1px solid #302a24}.player strong{display:block;margin-bottom:8px}.player audio{width:100%}.listen-status{font-size:.76rem;color:#b9aa98;margin-top:7px}.listen-status.complete{color:#d9e7cf}.scores{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:16px}.scores label{font-size:.75rem;color:#bcae9d}.scores select{width:100%;margin-top:5px;background:#0c0b0a;color:#f3eee6;border:1px solid #3b342c;border-radius:8px;padding:7px}.decision{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.decision select,.decision textarea{width:100%;background:#0c0b0a;color:#f3eee6;border:1px solid #3b342c;border-radius:10px;padding:10px}.decision textarea{grid-column:1/-1;min-height:72px;resize:vertical}.gate{margin-top:9px;font-size:.78rem;color:#cbb9a6}.gate.complete{color:#d9e7cf}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}button{border:0;border-radius:999px;padding:11px 17px;font-weight:700;cursor:pointer;background:#efe4d6;color:#211b16}button.secondary{background:#27221d;color:#e9dfd3;border:1px solid #40382f}.status{margin-top:10px;color:#b8aa99;font-size:.85rem}@media(max-width:700px){.players,.decision{grid-template-columns:1fr}.scores{grid-template-columns:1fr 1fr}.decision textarea{grid-column:auto}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Afterlight · Audio Quality v4</div>
+  <h1>Blind flagship listening review</h1>
+  <p class="lede">Compare A and B without trying to infer which version received the v4 finishing chain. Listen on the device you actually use. The goal is not to prove the DSP worked; it is to decide whether one version is genuinely more enjoyable, less fatiguing, and a better fit for the room.</p>
+  <div class="notice">Audition only. Nothing on this page is production-approved. Each version must be heard for at least 90 seconds before a preference or shortlist is accepted. Only one version plays at a time. Review data stays in this browser until you export it; no review payload is uploaded.</div>
+  <label class="identity">Reviewer ID <input id="reviewer" autocomplete="off" placeholder="Use a stable reviewer name or ID"></label>
+  <section id="rooms" class="grid" aria-live="polite"></section>
+  <div class="actions">
+    <button id="export">Export review JSON</button>
+    <button id="clear" class="secondary">Clear local review</button>
+  </div>
+  <div id="status" class="status"></div>
+</main>
+<script>
+const fields=[['roomFit','Room fit'],['musicality','Musicality'],['lowFatigue','Low fatigue'],['variation','Variation'],['productionPolish','Production polish']];
+const key='afterlight-audio-lab-review-v1',reviewerKey='afterlight-audio-lab-reviewer-v1';
+const state=JSON.parse(localStorage.getItem(key)||'{}');
+let manifest=null,activeAudio=null;
+const reviewer=document.getElementById('reviewer');
+reviewer.value=localStorage.getItem(reviewerKey)||'';
+const save=()=>localStorage.setItem(key,JSON.stringify(state));
+const scoreMarkup=(room,label)=>fields.map(([id,name])=>`<label>${name}<select data-room="${room}" data-version="${label}" data-score="${id}"><option value="">—</option>${[1,2,3,4,5].map(n=>`<option value="${n}">${n}</option>`).join('')}</select></label>`).join('');
+function ensure(item){
+  const existing=state[item.room]||{};
+  const review=state[item.room]={
+    pairId:item.pairId,room:item.room,reviewerId:reviewer.value.trim(),preferred:existing.preferred||'',decision:existing.decision||'',comments:existing.comments||'',
+    scores:{A:{...(existing.scores?.A||{})},B:{...(existing.scores?.B||{})}},
+    listenedSeconds:{A:Number(existing.listenedSeconds?.A||0),B:Number(existing.listenedSeconds?.B||0)},
+    exactHashes:{A:item.hashes.A,B:item.hashes.B},device:existing.device||navigator.userAgent,reviewedAt:existing.reviewedAt||''
+  };
+  return review;
+}
+function wire(card,item){
+  const r=ensure(item),minimum=Number(item.minimumListeningSecondsPerVersion||90);
+  const pref=card.querySelector('[data-preferred]'),decision=card.querySelector('[data-decision]'),comments=card.querySelector('[data-comments]'),gate=card.querySelector('[data-gate]');
+  const refresh=()=>{
+    for(const label of ['A','B']){
+      const el=card.querySelector(`[data-listened="${label}"]`),seconds=Math.min(minimum,Math.floor(r.listenedSeconds[label]||0));
+      el.textContent=`${seconds} / ${minimum}s heard`;el.classList.toggle('complete',seconds>=minimum);
+    }
+    const complete=r.listenedSeconds.A>=minimum&&r.listenedSeconds.B>=minimum;
+    pref.disabled=!complete;
+    const shortlist=decision.querySelector('option[value="shortlist"]');if(shortlist)shortlist.disabled=!complete;
+    gate.textContent=complete?'Listening minimum complete · preference and shortlist are enabled.':`Keep listening: ${Math.floor(r.listenedSeconds.A||0)}s A · ${Math.floor(r.listenedSeconds.B||0)}s B`;
+    gate.classList.toggle('complete',complete);
+  };
+  card.querySelectorAll('[data-score]').forEach(el=>{el.value=r.scores[el.dataset.version]?.[el.dataset.score]||'';el.addEventListener('change',()=>{r.scores[el.dataset.version][el.dataset.score]=el.value?Number(el.value):null;r.reviewedAt=new Date().toISOString();save()})});
+  pref.value=r.preferred;decision.value=r.decision;comments.value=r.comments;
+  pref.addEventListener('change',()=>{r.preferred=pref.value;r.reviewedAt=new Date().toISOString();save()});
+  decision.addEventListener('change',()=>{r.decision=decision.value;r.reviewedAt=new Date().toISOString();save()});
+  comments.addEventListener('input',()=>{r.comments=comments.value;r.reviewedAt=new Date().toISOString();save()});
+  card.querySelectorAll('audio[data-version]').forEach(audio=>{
+    const label=audio.dataset.version;let timer=null,lastTick=0;
+    const tick=()=>{
+      if(audio.paused||audio.ended)return;
+      const now=performance.now(),delta=Math.min(1.5,Math.max(0,(now-lastTick)/1000));lastTick=now;
+      if(delta>0){r.listenedSeconds[label]=Math.min(Number(item.durationSeconds||9999),Number(r.listenedSeconds[label]||0)+delta);r.reviewedAt=new Date().toISOString();save();refresh()}
+    };
+    audio.addEventListener('play',()=>{
+      document.querySelectorAll('audio').forEach(other=>{if(other!==audio&&!other.paused)other.pause()});
+      activeAudio=audio;lastTick=performance.now();clearInterval(timer);timer=setInterval(tick,1000);
+    });
+    const stop=()=>{tick();clearInterval(timer);timer=null;if(activeAudio===audio)activeAudio=null};
+    audio.addEventListener('pause',stop);audio.addEventListener('ended',stop);
+  });
+  refresh();save();
+}
+reviewer.addEventListener('input',()=>{localStorage.setItem(reviewerKey,reviewer.value.trim());for(const review of Object.values(state))review.reviewerId=reviewer.value.trim();save()});
+(async()=>{
+  manifest=await fetch('/audio-lab/manifest.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Audio Lab manifest unavailable');return r.json()});
+  const root=document.getElementById('rooms');
+  for(const item of manifest.rooms){
+    const card=document.createElement('article');card.className='card';
+    card.innerHTML=`<h2 class="room">${item.roomName}</h2><div class="meta">${item.room} · blind pair ${item.pairId} · ${item.durationLabel}</div><div class="players"><div class="player"><strong>Version A</strong><audio data-version="A" controls preload="metadata" src="${item.files.A}"></audio><div class="listen-status" data-listened="A"></div><div class="scores">${scoreMarkup(item.room,'A')}</div></div><div class="player"><strong>Version B</strong><audio data-version="B" controls preload="metadata" src="${item.files.B}"></audio><div class="listen-status" data-listened="B"></div><div class="scores">${scoreMarkup(item.room,'B')}</div></div></div><div class="decision"><select data-preferred><option value="">Preferred version…</option><option value="A">A</option><option value="B">B</option><option value="tie">Tie / no clear winner</option></select><select data-decision><option value="">Decision…</option><option value="shortlist">Shortlist</option><option value="rework">Rework</option><option value="reject">Reject</option></select><textarea data-comments placeholder="What sounds synthetic, repetitive, harsh, flat, or especially good?"></textarea></div><div class="gate" data-gate></div>`;
+    root.appendChild(card);wire(card,item);
+  }
+  document.getElementById('status').textContent=`Release ${manifest.releaseSha.slice(0,12)} · ${manifest.rooms.length} flagship comparisons · treatment identity intentionally withheld.`;
+})().catch(err=>document.getElementById('status').textContent=err.message);
+document.getElementById('export').addEventListener('click',()=>{
+  const id=reviewer.value.trim();if(!id){document.getElementById('status').textContent='Reviewer ID is required before export.';reviewer.focus();return}
+  for(const review of Object.values(state))review.reviewerId=id;
+  save();
+  const payload={schema:'afterlight-audio-lab-review-bundle/v2',releaseSha:manifest?.releaseSha||'',exportedAt:new Date().toISOString(),reviewerId:id,reviews:Object.values(state)};
+  const blob=new Blob([JSON.stringify(payload,null,2)+'\n'],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='afterlight-audio-lab-review.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)
+});
+document.getElementById('clear').addEventListener('click',()=>{localStorage.removeItem(key);localStorage.removeItem(reviewerKey);location.reload()});
+</script>
+</body>
+</html>

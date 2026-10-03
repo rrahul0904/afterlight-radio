@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'audio-lab.html'
       - 'account.html'
       - 'legal/**'
       - 'scripts/**'
@@ -32,6 +33,7 @@ jobs:
       VERCEL_ORG_ID: team_zmEezpOKGZy2sH5nqTfO44LD
       VERCEL_PROJECT_ID: prj_MrkrMOOEYpE5WWrc0dhZeSXuJtUA
       AFTERLIGHT_RELEASE_SHA: ${{ github.event.pull_request.head.sha }}
+      AFTERLIGHT_AUDIO_LAB: "1"
     steps:
       - name: Check out exact PR head
         uses: actions/checkout@v6
@@ -99,7 +101,22 @@ jobs:
           curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/audio/rooftop/1.wav" -o /tmp/rooftop.wav
           test "$(wc -c < /tmp/rooftop.wav)" -gt 1000000
           test "$(head -c 4 /tmp/rooftop.wav)" = "RIFF"
-          echo "Hosted preview matches exact PR head $AFTERLIGHT_RELEASE_SHA and serves Focus, offline, queue, and library runtimes." >> "$GITHUB_STEP_SUMMARY"
+          curl --fail --silent --show-error --retry 8 --retry-all-errors "$DEPLOYMENT_URL/audio-lab/manifest.json" -o /tmp/audio-lab-manifest.json
+          node - <<'NODE'
+          const fs=require('fs');
+          const m=JSON.parse(fs.readFileSync('/tmp/audio-lab-manifest.json','utf8'));
+          if(m.schema!=='afterlight-audio-lab/v1'||m.status!=='audition-only'||m.blinded!==true) throw new Error('Hosted Audio Lab manifest contract drifted');
+          if(m.releaseSha!==process.env.AFTERLIGHT_RELEASE_SHA) throw new Error('Hosted Audio Lab release SHA mismatch');
+          const expected=['rooftop','window','headspace','last-bus'];
+          if(JSON.stringify(m.rooms?.map(r=>r.room))!==JSON.stringify(expected)) throw new Error('Hosted flagship Audio Lab room set drifted');
+          NODE
+          for room in rooftop window headspace last-bus; do
+            curl --fail --silent --show-error --retry 8 --retry-all-errors -H 'Range: bytes=0-127' "$DEPLOYMENT_URL/audio-lab/audio/$room/A.wav" -o "/tmp/$room-A.wav"
+            curl --fail --silent --show-error --retry 8 --retry-all-errors -H 'Range: bytes=0-127' "$DEPLOYMENT_URL/audio-lab/audio/$room/B.wav" -o "/tmp/$room-B.wav"
+            test "$(wc -c < /tmp/$room-A.wav)" -gt 0
+            test "$(wc -c < /tmp/$room-B.wav)" -gt 0
+          done
+          echo "Hosted preview matches exact PR head $AFTERLIGHT_RELEASE_SHA and serves core runtimes plus the blinded flagship Audio Lab." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install Chromium for hosted offline certification
         run: |

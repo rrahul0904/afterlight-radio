@@ -8,6 +8,9 @@ permissions:
 jobs:
   build-and-check:
     runs-on: ubuntu-latest
+    env:
+      AFTERLIGHT_RELEASE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      AFTERLIGHT_AUDIO_LAB: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,3 +26,119 @@ jobs:
           ffmpeg -version
       - run: npm install
       - run: npm test
+      - name: Verify exact release marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(tr -d '\r\n' < public/release.txt)" = "$AFTERLIGHT_RELEASE_SHA"
+      - name: Generate flagship blind listening pack
+        run: >-
+          node scripts/music-quality-v4-pack.mjs
+          --rooms rooftop,window,headspace,last-bus
+          --seeds flagship-a
+          --role 1
+          --bars 32
+          --out .music-lab/v4-blind-ci
+      - name: Run Music QA Agent on exact flagship candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/music-quality-agent.mjs \
+            --rooms rooftop,window,headspace,last-bus \
+            --seeds flagship-a \
+            --role 1 \
+            --bars 32 \
+            --out .music-lab/music-agent-ci
+          node - <<'NODE'
+          const fs=require('fs');
+          const path=require('path');
+          const summary=require('./.music-lab/music-agent-ci/summary.json');
+          const truth=require('./.music-lab/v4-blind-ci/private/truth-map.json');
+          const lab=require('./public/audio-lab/manifest.json');
+          if(summary.rejected>0){
+            console.error(`Music QA Agent rejected ${summary.rejected}/${summary.candidateCount} flagship candidates.`);
+            process.exit(1);
+          }
+          if(summary.eligibleForHumanReview!==summary.candidateCount) throw new Error('Music QA Agent summary is inconsistent');
+          if(summary.candidateCount!==4) throw new Error('Expected four flagship QA reports');
+          if(fs.existsSync('public/audio-lab/music-agent-summary.json')) throw new Error('Music QA evidence must not ship in public Audio Lab because it can reveal treatment identity');
+          for(const row of summary.reports){
+            if(row.seed!=='flagship-a') throw new Error(`${row.room}: QA seed drifted from blind candidate`);
+            const report=require(path.resolve(`.music-lab/music-agent-ci/${row.room}-flagship-a.json`));
+            const treatment=truth.pairs.find(entry=>entry.room===row.room);
+            if(!treatment) throw new Error(`${row.room}: missing private treatment binding`);
+            const blind=require(path.resolve(`.music-lab/v4-blind-ci/blind/${treatment.pairId}/manifest.json`));
+            const deployed=lab.rooms.find(entry=>entry.room===row.room);
+            if(!deployed) throw new Error(`${row.room}: missing deployed Audio Lab candidate`);
+            if(report.hashes.finished!==treatment.finishedSha256) throw new Error(`${row.room}: QA finished hash does not match blind treatment`);
+            if(report.hashes.source!==treatment.sourceSha256) throw new Error(`${row.room}: QA source hash does not match blind treatment`);
+            const blindHashes=Object.values(blind.hashes);
+            if(!blindHashes.includes(report.hashes.finished)||!blindHashes.includes(report.hashes.source)) throw new Error(`${row.room}: blind pair does not contain the QA source and finished files`);
+            if(blind.hashes.A!==deployed.hashes.A||blind.hashes.B!==deployed.hashes.B) throw new Error(`${row.room}: deployed Audio Lab hashes drifted from blind pack`);
+            if(report.features.finished.durationSeconds<90) throw new Error(`${row.room}: QA candidate is shorter than 90 seconds`);
+            if(deployed.durationSeconds<90||deployed.minimumListeningSecondsPerVersion!==90) throw new Error(`${row.room}: Audio Lab review duration contract is invalid`);
+          }
+          console.log('PASS exact-candidate binding: Music QA, private truth map, blind pack and public Audio Lab refer to the same >=90s flagship audio without exposing treatment identity');
+          NODE
+      - name: Write deploy bundle manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs');
+          const crypto=require('crypto');
+          const path=require('path');
+          const root='public';
+          const files=[];
+          function walk(dir){
+            for(const name of fs.readdirSync(dir)){
+              const p=path.join(dir,name),st=fs.statSync(p);
+              if(st.isDirectory()) walk(p);
+              else files.push({path:p,size:st.size,sha256:crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')});
+            }
+          }
+          walk(root);
+          files.sort((a,b)=>a.path.localeCompare(b.path));
+          const manifest={schema:'afterlight-deploy-bundle/v1',releaseSha:process.env.AFTERLIGHT_RELEASE_SHA,fileCount:files.length,files};
+          fs.writeFileSync('deploy-bundle-manifest.json',JSON.stringify(manifest,null,2)+'\n');
+          NODE
+      - name: Upload exact-head deploy bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-deploy-${{ env.AFTERLIGHT_RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            public/
+            api/
+            functions/
+            src/
+            neon/
+            vercel.json
+            wrangler.jsonc
+            package.json
+            package-lock.json
+            deploy-bundle-manifest.json
+      - name: Upload Music QA Agent evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-music-agent-${{ env.AFTERLIGHT_RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 14
+          path: .music-lab/music-agent-ci/
+      - name: Upload blind flagship listening pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-v4-blind-listening-${{ env.AFTERLIGHT_RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .music-lab/v4-blind-ci/blind/
+            .music-lab/v4-blind-ci/pack-manifest.json
+      - name: Upload private treatment map
+        uses: actions/upload-artifact@v4
+        with:
+          name: afterlight-v4-private-truth-${{ env.AFTERLIGHT_RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 14
+          path: .music-lab/v4-blind-ci/private/truth-map.json
