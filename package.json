@@ -31,7 +31,7 @@
     "music:intake-master": "node scripts/music-master-intake.mjs",
     "music:mastering-certify": "node scripts/music-mastering-certify.mjs",
     "music:release-certificate": "node scripts/music-release-certificate.mjs",
-    "check:music-master-intake": "node --check scripts/music-master-intake.mjs && node --check scripts/music-mastering.mjs && node --check scripts/music-mastering-certify.mjs && node scripts/music-release-certificate.mjs && node scripts/music-mastering-contract-check.mjs && node scripts/music-mastering-smoke.mjs && node scripts/music-master-intake-smoke.mjs"
+    "check:music-master-intake": "node --check scripts/music-master-intake.mjs && node --check scripts/music-mastering.mjs && node --check scripts/music-mastering-certify.mjs && node --check scripts/music-release-certificate.mjs && node scripts/music-mastering-contract-check.mjs && node scripts/music-mastering-smoke.mjs && node scripts/music-master-intake-smoke.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0"
