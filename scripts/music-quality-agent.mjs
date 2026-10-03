@@ -15,7 +15,6 @@ const ROOM_POLICY=Object.freeze({
 });
 
 const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const db=v=>20*Math.log10(Math.max(v,1e-9));
 const round=(v,n=5)=>Number(v.toFixed(n));
 
@@ -38,7 +37,7 @@ function correlation(a,b){
 function blockEnvelope(left,right,sampleRate,seconds=.5){
   const size=Math.max(1,Math.round(sampleRate*seconds)),out=[];
   for(let start=0;start<left.length;start+=size){
-    const end=Math.min(left.length,start+size);let sum=0,peak=0,diff=0,prev=(left[start]||0+right[start]||0)*.5;
+    const end=Math.min(left.length,start+size);let sum=0,peak=0,diff=0,prev=((left[start]||0)+(right[start]||0))*.5;
     for(let i=start;i<end;i++){
       const mono=(left[i]+right[i])*.5;sum+=mono*mono;peak=Math.max(peak,Math.abs(mono));
       if(i>start){const d=mono-prev;diff+=d*d}prev=mono;
@@ -136,9 +135,9 @@ function roomFitAgent(metadata){
 
 export function evaluateMusicCandidate({room='rooftop',seed='agent-a',role=1,bars=48}={}){
   const policy=ROOM_POLICY[room]||{repetitionWarn:.88,fatigueWarn:.31,minDynamicDb:7};
-  const source=Buffer.from(renderMusicCandidate({roomSlug:room,seed,trackRole:role,bars}).bytes),processed=processQualityV4(source),finished=Buffer.from(processed.bytes);
-  const sourceFeatures=waveformFeatures(source),finishedFeatures=waveformFeatures(finished);
-  const metadata=renderMusicCandidate({roomSlug:room,seed,trackRole:role,bars}).metadata;
+  const rendered=renderMusicCandidate({roomSlug:room,seed,trackRole:role,bars});
+  const source=Buffer.from(rendered.bytes),processed=processQualityV4(source),finished=Buffer.from(processed.bytes);
+  const sourceFeatures=waveformFeatures(source),finishedFeatures=waveformFeatures(finished),metadata=rendered.metadata;
   const findings=[...signalAgent(finishedFeatures),...dynamicsAgent(finishedFeatures,policy),...stereoAgent(finishedFeatures),...fatigueAgent(finishedFeatures,policy),...repetitionAgent(finishedFeatures,policy),...comparisonAgent(sourceFeatures,finishedFeatures),...roomFitAgent(metadata)];
   const failures=findings.filter(x=>x.status==='fail'),warnings=findings.filter(x=>x.status==='warn');
   const machineGate=failures.length?'reject':'eligible-for-human-review';
