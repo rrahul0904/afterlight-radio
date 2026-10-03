@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'audio-lab.html'
       - 'scripts/build.mjs'
       - 'scripts/focus-room.js'
       - 'scripts/library-runtime.js'
@@ -12,6 +13,8 @@ on:
       - 'scripts/queue-runtime.js'
       - 'scripts/library-browser.js'
       - 'scripts/audio-library.mjs'
+      - 'scripts/music-quality-v4*.mjs'
+      - 'scripts/audio-lab*.mjs'
       - 'scripts/preview-server.mjs'
       - 'package.json'
       - 'scripts/browser-smoke.mjs'
@@ -20,6 +23,7 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'audio-lab.html'
       - 'account.html'
       - 'legal/**'
       - 'scripts/build.mjs'
@@ -32,6 +36,8 @@ on:
       - 'scripts/mobile-visual-polish.js'
       - 'scripts/account-enhancements.js'
       - 'scripts/audio-library.mjs'
+      - 'scripts/music-quality-v4*.mjs'
+      - 'scripts/audio-lab*.mjs'
       - 'scripts/product-quality-check.mjs'
       - 'scripts/test-server.mjs'
       - 'scripts/browser-smoke.mjs'
@@ -47,6 +53,8 @@ jobs:
     timeout-minutes: 25
     env:
       BASE_URL: http://127.0.0.1:4173
+      AFTERLIGHT_AUDIO_LAB: "1"
+      AFTERLIGHT_RELEASE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
@@ -67,6 +75,8 @@ jobs:
           exit 1
       - name: Exercise current-build browsers
         run: node scripts/browser-smoke.mjs
+      - name: Verify blind Audio Lab in desktop and mobile engines
+        run: node scripts/audio-lab-browser-smoke.mjs
       - name: Upload visual review screenshots
         if: always()
         uses: actions/upload-artifact@v4
