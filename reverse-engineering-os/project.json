@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "project": {
+    "name": "Afterlight Radio",
+    "repository": "rrahul0904/afterlight-radio",
+    "pilot": "reverse-engineering-os",
+    "status": "PREVIEW_BLOCKED",
+    "currentStage": "deploy",
+    "sourceBranch": "rebuild/source-first-afterlight",
+    "sourceHead": "ac49cbc68227012bf3c48d1dc75bead263e6ba07",
+    "verifiedCodeSha": "73710160ac5e2d2e60c148f69c1071f0f1612604"
+  },
+  "productThesis": "Pick somewhere else to be, press play, and stay there: a place-based listening world where each room has its own music identity, visuals can change without interrupting playback, and radio/conversation features remain secondary until the core listening experience is excellent.",
+  "canonicalSources": [
+    "docs/reverse-engineering/SOURCE_FIRST_REBUILD_2026-10-03.md",
+    "https://tunedaway.com/",
+    "https://deadair.radio/",
+    "https://github.com/robert-dean/deadair"
+  ],
+  "primaryWorkflow": [
+    "open directly into the scene catalogue",
+    "choose a flagship place",
+    "start music after explicit user intent",
+    "stay within the room-specific music identity",
+    "change Day/Evening/Night or Another view without restarting audio",
+    "mix optional ambience independently",
+    "share exact room, view and track state where permitted"
+  ],
+  "capabilities": [
+    {"name":"room-specific music identity","classification":"MATCH","status":"implemented-candidate"},
+    {"name":"visual-state changes without playback interruption","classification":"MATCH","status":"implemented"},
+    {"name":"room-local next previous and shuffle semantics","classification":"MATCH","status":"implemented"},
+    {"name":"exact room-track-view share state","classification":"MATCH","status":"implemented"},
+    {"name":"production-quality curated or cleared audio baseline","classification":"IMPROVE","status":"human-listening-required"},
+    {"name":"AI host and conversation before core listening proof","classification":"OMIT","status":"deferred"}
+  ],
+  "stages": {
+    "discover": {"status":"passed","evidence":[{"kind":"path","ref":"docs/reverse-engineering/SOURCE_FIRST_REBUILD_2026-10-03.md"}]},
+    "understand": {"status":"passed","evidence":[{"kind":"path","ref":"docs/reverse-engineering/SOURCE_FIRST_REBUILD_2026-10-03.md"}]},
+    "analyze": {"status":"passed","evidence":[{"kind":"path","ref":"docs/reverse-engineering/SOURCE_FIRST_REBUILD_2026-10-03.md"}]},
+    "reconstruct": {"status":"passed","evidence":[{"kind":"path","ref":"docs/reverse-engineering/SOURCE_FIRST_REBUILD_2026-10-03.md"}]},
+    "architect": {"status":"partial","evidence":[{"kind":"path","ref":"docs/reverse-engineering/SOURCE_FIRST_REBUILD_2026-10-03.md"}]},
+    "implement": {"status":"passed","evidence":[{"kind":"sha","ref":"73710160ac5e2d2e60c148f69c1071f0f1612604"}]},
+    "execute": {"status":"passed","evidence":[{"kind":"run","ref":"CI 37150834607 and Browser Matrix 37150834581"}]},
+    "test": {"status":"passed","evidence":[{"kind":"run","ref":"CI 37150834607 and Browser Matrix 37150834581"}]},
+    "uat": {"status":"blocked","evidence":[{"kind":"path","ref":"docs/uat/SOURCE_FIRST_LISTENING_UAT.md"}]},
+    "build": {"status":"passed","evidence":[{"kind":"run","ref":"CI 37150834607"}]},
+    "deploy": {"status":"blocked","evidence":[{"kind":"run","ref":"Vercel Preview 37150834616 blocked at Require preview authorization"}]},
+    "compare": {"status":"partial","evidence":[{"kind":"path","ref":"docs/reverse-engineering/SOURCE_FIRST_REBUILD_2026-10-03.md"}]},
+    "prove": {"status":"partial","evidence":[{"kind":"sha","ref":"73710160ac5e2d2e60c148f69c1071f0f1612604"}]}
+  },
+  "completionGate": {
+    "requiredPassedStages": ["discover","understand","analyze","reconstruct","architect","implement","execute","test","uat","build","deploy","compare","prove"],
+    "rule": "PROJECT_STATUS may be COMPLETE only when every required stage is passed."
+  },
+  "nextAction": "Authorize an exact-head hosted Preview, run the listening UAT on phone speaker, headphones and laptop, and qualify the four flagship rooms with human listening before any production promotion or radio expansion."
+}
