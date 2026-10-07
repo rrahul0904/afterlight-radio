@@ -54,7 +54,9 @@ async function desktopFlow(){
   await page.waitForFunction(()=>window.__afterlightSpoken.getState().items[0].progress>=4.5);
   const progressBefore=await page.evaluate(()=>window.__afterlightSpoken.getState().items[0].progress);
 
-  if(postLoadRequests.length!==0)throw new Error('Local audio/transcript import unexpectedly caused network requests: '+postLoadRequests.join(', '));
+  const unexpectedRequests=postLoadRequests.filter(url=>!url.startsWith('blob:'));
+  if(unexpectedRequests.length!==0)throw new Error('Local audio/transcript import unexpectedly caused non-blob requests: '+unexpectedRequests.join(', '));
+  if(!postLoadRequests.some(url=>url.startsWith('blob:')))throw new Error('Local object-URL playback was not observed');
   await page.screenshot({path:path.join(artifactDir,'desktop.png'),fullPage:true});
 
   await page.reload({waitUntil:'networkidle'});
