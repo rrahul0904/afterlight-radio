@@ -22,6 +22,7 @@ const libraryRuntime=await readFile(path.join(root,'scripts','library-runtime.js
 const offlineWorker=await readFile(path.join(root,'scripts','offline-worker.js'),'utf8');
 const queueRuntime=await readFile(path.join(root,'scripts','queue-runtime.js'),'utf8');
 const libraryBrowser=await readFile(path.join(root,'scripts','library-browser.js'),'utf8');
+const spokenRuntime=await readFile(path.join(root,'scripts','spoken-library.js'),'utf8');
 await writeFile(path.join(out,'runtime-enhancements.js'),runtimeEnhancements);
 await writeFile(path.join(out,'mobile-visual-polish.js'),mobileVisualPolish);
 await writeFile(path.join(out,'audio-continuity.js'),audioContinuity);
@@ -32,6 +33,7 @@ await writeFile(path.join(out,'library-runtime.js'),libraryRuntime);
 await writeFile(path.join(out,'offline-worker.js'),offlineWorker);
 await writeFile(path.join(out,'queue-runtime.js'),queueRuntime);
 await writeFile(path.join(out,'library-browser.js'),libraryBrowser);
+await writeFile(path.join(out,'spoken-library.js'),spokenRuntime);
 await writeFile(path.join(out,'index.html'),html);
 
 for(const slug of slugs){
@@ -45,6 +47,10 @@ for(const page of ['privacy','terms','support']){
   const pageHtml=await readFile(path.join(root,'legal',page+'.html'),'utf8');
   await writeFile(path.join(dir,'index.html'),improveContrast(pageHtml));
 }
+
+const spokenDir=path.join(out,'spoken');
+await mkdir(spokenDir,{recursive:true});
+await writeFile(path.join(spokenDir,'index.html'),await readFile(path.join(root,'spoken.html'),'utf8'));
 
 const accountDir=path.join(out,'account');
 await mkdir(accountDir,{recursive:true});
@@ -69,4 +75,4 @@ await writeFile(path.join(out,'_headers'),`/*
 
 const count=await generateAudio(out);
 const sample=await stat(path.join(out,'audio','rooftop','1.wav'));
-console.log(`Built ${slugs.length} room routes, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest (sample ${sample.size} bytes)`);
+console.log(`Built ${slugs.length} room routes, Afterlight Spoken local-library route, mobile/audio/focus/offline-library/queue/catalog runtime, three-track continuity, billing-support fallback, account + admin portals, 3 legal pages and ${count} composition-engine-v3 stereo audio files + music manifest (sample ${sample.size} bytes)`);
