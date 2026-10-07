@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#14110f">
+  <title>Afterlight Spoken</title>
+  <style>
+    :root{color-scheme:dark;--bg:#14110f;--panel:#1e1a17;--panel2:#26201c;--text:#f5eee6;--muted:#b6a99e;--line:#3a312b;--accent:#e9cfae;--ink:#211a14;--danger:#f2a49c}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#2d241d 0,transparent 34%),var(--bg);color:var(--text);font:15px/1.45 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,input,select{font:inherit}button,.button,.mini-file{border:1px solid var(--line);background:#2a231e;color:var(--text);border-radius:999px;padding:9px 13px;cursor:pointer}
+    button:hover,.button:hover,.mini-file:hover{border-color:#655548}.primary{background:var(--accent);color:var(--ink);border-color:transparent;font-weight:700}.ghost{background:transparent}
+    button:disabled,input:disabled,select:disabled{opacity:.45;cursor:not-allowed}.mini-file{display:inline-flex;align-items:center}.mini-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+    a{color:inherit}.shell{max-width:1460px;margin:auto;padding:24px}.topbar{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}.brand h1{font:600 clamp(30px,4vw,52px)/1 Georgia,serif;margin:4px 0 8px}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted)}.lede{max-width:720px;color:var(--muted);margin:0}
+    .privacy{display:flex;align-items:center;gap:8px;color:#d7c6b6;font-size:13px}.privacy::before{content:"";width:8px;height:8px;border-radius:50%;background:#94c59e;box-shadow:0 0 0 4px #94c59e20}
+    .grid{display:grid;grid-template-columns:minmax(260px,330px) minmax(420px,1fr) minmax(280px,390px);gap:16px;align-items:start}.panel{background:linear-gradient(180deg,#211c18,#191613);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 16px 50px #00000022}.panel-head{padding:18px 18px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-head h2{font-size:16px;margin:0}.subtle{font-size:12px;color:var(--muted)}
+    .import-card{margin:0 14px 14px;padding:14px;border-radius:16px;background:#2a231d;border:1px solid #41362e}.import-card p{margin:7px 0 12px;color:var(--muted);font-size:13px}.file-button{display:flex;justify-content:center;align-items:center;min-height:46px;position:relative}.file-button input{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .shelf-list{display:grid;gap:8px;padding:0 10px 14px;max-height:68vh;overflow:auto}.shelf-item{border:1px solid transparent;border-radius:15px;background:#1d1916}.shelf-item.selected{border-color:#8f755f;background:#28211c}.shelf-main{width:100%;text-align:left;border:0;border-radius:15px 15px 8px 8px;background:transparent;display:grid;gap:3px;padding:13px}.shelf-main strong{font-size:14px}.shelf-main small{color:var(--muted)}.type-badge{width:max-content;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#cdb397}.shelf-actions{display:flex;gap:6px;padding:0 10px 10px;flex-wrap:wrap}.shelf-actions button,.shelf-actions .mini-file{padding:6px 9px;font-size:11px}
+    .now{padding:22px}.now-top{display:grid;grid-template-columns:82px 1fr;gap:18px;align-items:center}.cover{width:82px;aspect-ratio:1;border-radius:18px;background:linear-gradient(145deg,#bc9470,#4e3a2c 60%,#251d18);display:grid;place-items:center;font:700 28px Georgia,serif;color:#f8ede2}.now h2{font:600 28px/1.1 Georgia,serif;margin:3px 0 6px}.now p{margin:0;color:var(--muted)}audio{width:100%;margin:20px 0 12px;accent-color:#d4b28f}.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.control{display:grid;gap:5px}.control label{font-size:10px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted)}select,input[type=text]{background:#171411;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px}.inline-check{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px}
+    .metadata{display:grid;grid-template-columns:2fr 1.5fr 1fr;gap:10px;margin-top:16px}.metadata label{display:grid;gap:5px;font-size:10px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted)}
+    .status-line{min-height:22px;margin-top:12px;font-size:12px;color:#bfcdbd}.status-line.error{color:var(--danger)}.relink{font-size:12px;color:#cebda9;margin-top:5px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:18px}.stat{background:#171411;border:1px solid var(--line);padding:12px;border-radius:13px}.stat strong{display:block;font-size:19px}.stat span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+    .transcript-panel{margin-top:16px;border-top:1px solid var(--line)}.transcript-toolbar{padding:15px 18px 8px;display:flex;gap:10px;align-items:center;justify-content:space-between}.transcript-toolbar h3{margin:0;font-size:14px}.transcript-list{max-height:43vh;overflow:auto;padding:8px 12px 16px;display:grid;gap:4px}.transcript-line{width:100%;border:0;border-radius:10px;background:transparent;display:grid;grid-template-columns:58px 1fr;text-align:left;gap:10px;padding:9px;color:#d9cec5;line-height:1.5}.transcript-line:not(:disabled):hover{background:#2a231f}.transcript-line.active{background:#3b3028;color:#fff}.cue-time{font-variant-numeric:tabular-nums;color:#a8917d;font-size:11px;padding-top:3px}.transcript-line:disabled{opacity:1;cursor:default}.empty{color:var(--muted);font-size:13px;padding:8px 6px}
+    .queue-list{display:grid;gap:7px;padding:0 12px 14px}.queue-row{display:flex;justify-content:space-between;gap:12px;align-items:center;background:#1a1714;border:1px solid var(--line);border-radius:13px;padding:10px}.queue-row>div:first-child{display:grid}.queue-row small{color:var(--muted)}.queue-row>div:last-child{display:flex;gap:4px}.queue-row button{padding:5px 8px;font-size:11px}
+    .right-note{padding:0 18px 18px;color:var(--muted);font-size:12px}.divider{height:1px;background:var(--line);margin:4px 0 14px}.top-actions{display:flex;gap:8px;align-items:center}
+    @media(max-width:1080px){.grid{grid-template-columns:300px 1fr}.right{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}.right .right-note{grid-column:1/-1}}
+    @media(max-width:760px){.shell{padding:14px}.topbar{display:grid}.grid{grid-template-columns:1fr}.right{grid-column:auto;display:block}.shelf-list{max-height:none}.transcript-list{max-height:48vh}.metadata{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr 1fr}.now{padding:17px}.now-top{grid-template-columns:62px 1fr}.cover{width:62px;border-radius:14px}.now h2{font-size:23px}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="eyebrow">Afterlight · Local listening lab</div>
+        <h1>Spoken</h1>
+        <p class="lede">A calm shelf for your own audiobooks and podcast episodes, with resume memory, Up Next, transcripts, speed controls and listening stats.</p>
+      </div>
+      <div class="top-actions"><span class="privacy">Local-first</span><a class="button ghost" href="/">Places</a></div>
+    </header>
+    <section class="grid">
+      <aside class="panel">
+        <div class="panel-head"><h2>Your shelf</h2><span id="shelfCount" class="subtle">0 items</span></div>
+        <div class="import-card"><div class="eyebrow">Start here</div><p>Select audio you already own or are authorized to play. The browser creates a temporary local URL; the file is not uploaded.</p><label class="button primary file-button">Add local audio<input id="audioInput" type="file" accept="audio/*,.mp3,.m4b,.m4a,.aac,.flac,.ogg,.opus,.wav"></label></div>
+        <div id="shelfList" class="shelf-list"></div>
+      </aside>
+      <section class="panel">
+        <div class="now">
+          <div class="now-top"><div class="cover">S</div><div><div class="eyebrow">Now listening</div><h2 id="currentTitle">Nothing selected</h2><p id="currentCreator">Add local audio to begin.</p><div id="relinkState" class="relink">No item</div></div></div>
+          <audio id="spokenAudio" controls preload="metadata" playsinline></audio>
+          <div class="controls">
+            <div class="control"><label for="rateInput">Speed</label><select id="rateInput"><option value=".5">0.5×</option><option value=".75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="2.5">2.5×</option><option value="3">3×</option></select></div>
+            <div class="control"><label for="sleepInput">Sleep</label><select id="sleepInput"><option value="0">Off</option><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></div>
+            <div class="control"><label>Timer status</label><span id="sleepStatus" class="subtle">Sleep timer off</span></div>
+            <label class="inline-check"><input id="rewindAfterSleep" type="checkbox" checked> Rewind 30s after sleep</label>
+          </div>
+          <div class="metadata"><label>Title<input id="titleInput" type="text" maxlength="180" disabled></label><label>Author / show<input id="creatorInput" type="text" maxlength="180" disabled></label><label>Kind<select id="typeInput" disabled><option value="audiobook">Audiobook</option><option value="podcast_episode">Podcast episode</option></select></label></div>
+          <div class="stats"><div class="stat"><strong id="statListened">0 min</strong><span>Listened</span></div><div class="stat"><strong id="statItems">0</strong><span>Library</span></div><div class="stat"><strong id="statCompleted">0</strong><span>Completed</span></div></div>
+          <div id="statusMessage" class="status-line" aria-live="polite"></div>
+        </div>
+        <div class="transcript-panel"><div class="transcript-toolbar"><div><h3>Transcript</h3><span id="transcriptMeta" class="subtle">No transcript</span></div><label class="mini-file">Import transcript<input id="transcriptInput" type="file" accept=".vtt,.srt,.txt,text/vtt,text/plain" disabled></label></div><div id="transcriptList" class="transcript-list"></div></div>
+      </section>
+      <aside class="panel right">
+        <div><div class="panel-head"><h2>Up Next</h2><span id="queueCount" class="subtle">0 queued</span></div><div class="queue-list" id="queueList"></div><div style="display:flex;gap:8px;padding:0 14px 16px"><button id="addCurrentToQueue" type="button" disabled>Add current</button><button id="playNext" type="button">Play next</button></div></div>
+        <div class="right-note"><div class="divider"></div><div class="eyebrow">Phase A privacy contract</div><p>Your audio, filenames and transcript text stay in this browser flow. Library metadata, progress, queue and listening statistics are stored locally. Browser object URLs are never persisted.</p><p>After a reload, local media is intentionally marked <strong>needs relink</strong>. Select the same file again and its deterministic metadata fingerprint restores the saved progress.</p><p>Timed WebVTT/SRT cues are validated before import. Plain text is readable but not seekable.</p></div>
+      </aside>
+    </section>
+  </main>
+  <script src="/spoken-library.js?v=spoken1"></script>
+</body>
+</html>
