@@ -20,6 +20,7 @@ async function desktopFlow(){
 
   await page.locator('#audioInput').setInputFiles(audioFixture);
   await page.waitForFunction(()=>window.__afterlightSpoken?.getState().items[0]?.status==='ready');
+  await page.waitForFunction(()=>Number.isFinite(document.getElementById('spokenAudio')?.duration)&&document.getElementById('spokenAudio').duration>6);
   let state=await page.evaluate(()=>window.__afterlightSpoken.getState());
   if(state.items.length!==1||state.items[0].schema!=='spoken-library/v1')throw new Error('Local audio was not normalized into spoken-library/v1');
   if(state.items[0].filename!=='1.wav')throw new Error('Unexpected local fixture identity');
@@ -49,7 +50,7 @@ async function desktopFlow(){
   state=await page.evaluate(()=>window.__afterlightSpoken.getState());
   if(state.queue.length!==1)throw new Error('Up Next did not persist current item');
 
-  await page.locator('#spokenAudio').evaluate(audio=>{audio.currentTime=5;audio.dispatchEvent(new Event('pause'))});
+  await page.locator('#spokenAudio').evaluate(audio=>{audio.pause();audio.currentTime=5;audio.dispatchEvent(new Event('pause'))});
   await page.waitForFunction(()=>window.__afterlightSpoken.getState().items[0].progress>=4.5);
   const progressBefore=await page.evaluate(()=>window.__afterlightSpoken.getState().items[0].progress);
 
