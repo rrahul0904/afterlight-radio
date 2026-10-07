@@ -5,12 +5,15 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'spoken.html'
       - 'scripts/build.mjs'
       - 'scripts/focus-room.js'
       - 'scripts/library-runtime.js'
       - 'scripts/offline-worker.js'
       - 'scripts/queue-runtime.js'
       - 'scripts/library-browser.js'
+      - 'scripts/spoken-library.js'
+      - 'scripts/spoken-browser-smoke.mjs'
       - 'scripts/audio-library.mjs'
       - 'scripts/preview-server.mjs'
       - 'package.json'
@@ -20,6 +23,7 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'spoken.html'
       - 'account.html'
       - 'legal/**'
       - 'scripts/build.mjs'
@@ -29,6 +33,8 @@ on:
       - 'scripts/offline-worker.js'
       - 'scripts/queue-runtime.js'
       - 'scripts/library-browser.js'
+      - 'scripts/spoken-library.js'
+      - 'scripts/spoken-browser-smoke.mjs'
       - 'scripts/mobile-visual-polish.js'
       - 'scripts/account-enhancements.js'
       - 'scripts/audio-library.mjs'
@@ -67,11 +73,21 @@ jobs:
           exit 1
       - name: Exercise current-build browsers
         run: node scripts/browser-smoke.mjs
+      - name: Verify Afterlight Spoken local media flow
+        run: node scripts/spoken-browser-smoke.mjs
       - name: Upload visual review screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: browser-visual-review
           path: test-artifacts/screenshots
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload Spoken visual review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spoken-visual-review
+          path: test-artifacts/spoken
           if-no-files-found: warn
           retention-days: 7
